@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Discovr — AI Visibility Report</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header class="app-header">
+    <div class="container header-row">
+      <div>
+        <h1>Discovr</h1>
+        <p class="tagline">See how visible your business is to AI assistants.</p>
+      </div>
+      <div class="user-bar">
+        <span>Welcome, {{ user_name }}</span>
+        <a class="logout-link" href="{{ url_for('logout') }}">Log out</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="card" id="input-card">
+      <h2>Analyze Your Business</h2>
+      <form id="analyze-form">
+        <div class="field">
+          <label for="website">Website URL</label>
+          <input type="text" id="website" placeholder="https://yourbusiness.com">
+        </div>
+        <div class="field">
+          <label for="facebook">Facebook Handle</label>
+          <input type="text" id="facebook" placeholder="@yourbusiness">
+        </div>
+        <div class="field">
+          <label for="instagram">Instagram Handle</label>
+          <input type="text" id="instagram" placeholder="@yourbusiness">
+        </div>
+        <button type="submit" id="analyze-btn">Run Analysis</button>
+      </form>
+    </section>
+
+    <section class="card {% if not history %}hidden{% endif %}" id="history-card">
+      <h2>Your Analysis History</h2>
+      <ul id="history" class="history">
+        {% for entry in history %}
+        <li>{{ entry.created_at }} — {{ entry.website }} — {{ entry.overall_score }}/100</li>
+        {% endfor %}
+      </ul>
+    </section>
+
+    <section class="card hidden" id="report-card">
+      <div class="report-header">
+        <h2 id="business-name"></h2>
+        <div class="overall-score">
+          <span id="overall-score-value">0</span><span class="score-label">/100</span>
+          <span id="overall-grade" class="grade-badge"></span>
+        </div>
+      </div>
+
+      <h3>Category Scores</h3>
+      <div id="categories" class="categories"></div>
+
+      <h3>Recommendations</h3>
+      <ul id="recommendations" class="recommendations"></ul>
+    </section>
+
+    <section class="card hidden" id="chat-card">
+      <h2>Ask a Follow-Up Question</h2>
+      <div id="chat-messages" class="chat-messages"></div>
+      <form id="chat-form">
+        <input type="text" id="chat-input" placeholder="e.g. Why is my structured data score low?">
+        <button type="submit">Send</button>
+      </form>
+    </section>
+  </main>
+
+  <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
