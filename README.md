@@ -53,9 +53,9 @@ _(placeholder — add a screenshot of the chat here)_
   base grounded in your real scores and findings when you have them
   (see [Chat Intent Routing](#chat-intent-routing)).
 - **Knowledge base RAG** — `data/knowledge_base.md` is chunked and
-  embedded (sentence-transformers + ChromaDB) rather than loaded whole,
-  and used to ground the content-clarity rubric, fix generation, and
-  the agent loop's ranking (see [RAG Pipeline](#rag-pipeline)).
+  embedded (OpenRouter's embeddings API + ChromaDB) rather than loaded
+  whole, and used to ground the content-clarity rubric, fix generation,
+  and the agent loop's ranking (see [RAG Pipeline](#rag-pipeline)).
 - **Settings page** — edit `data/knowledge_base.md` and the chatbot's
   system prompt directly from the app, behind login.
 - **Chunks page** — inspect every chunk the knowledge base was split
@@ -99,11 +99,10 @@ _(placeholder — add a screenshot of the chat here)_
 - **SQLite** (`sqlite3`, standard library) — persistence for users,
   businesses, analyses, findings, and recommendations
 - **python-dotenv** — loads local config from `.env`
-- **OpenRouter** — model-agnostic LLM API used by content clarity, fix generation, and the agent loop
+- **OpenRouter** — model-agnostic LLM API used by content clarity, fix generation, and the agent loop; also embeds knowledge base chunks and questions for retrieval (`src.agents.embed`, `openai/text-embedding-3-small` by default) — no local embedding model, see [Deploying to Render](#deploying-to-render)
 - **LangGraph** — the agent loop's state machine (`src/agent/graph.py`)
-- **sentence-transformers** (`all-MiniLM-L6-v2`) — embeds knowledge base chunks and questions for retrieval
 - **ChromaDB** — stores chunk embeddings and serves similarity search
-- **requests** / **beautifulsoup4** / **Playwright** — HTTP fetching, HTML parsing, and headless-browser fallback for the Business Website component
+- **requests** / **beautifulsoup4** — HTTP fetching and HTML parsing for the Business Website component; **Playwright** is an optional headless-browser fallback for JS-heavy sites, not installed by default on Render (see [Deploying to Render](#deploying-to-render))
 - **pytest** — unit tests for the deterministic scoring checks
 - **Vanilla HTML/CSS/JS** — no frontend framework or build step
 
@@ -214,13 +213,19 @@ Requires Python 3.9+.
 
    ```bash
    pip install -r requirements.txt
-   playwright install chromium
    ```
 
-   The second command is a one-time download of a headless Chromium
-   binary, used by the Business Website component to render
-   JavaScript-heavy sites (see
-   [Business Website Component](#business-website-component)).
+   Optional: for the Business Website component's JS-render fallback
+   (see [Business Website Component](#business-website-component)),
+   also install Playwright and its browser binary. It's not in
+   `requirements.txt` (too heavy for Render's free tier — see
+   [Deploying to Render](#deploying-to-render)); the app runs fine
+   without it, it just won't render JS-heavy sites.
+
+   ```bash
+   pip install "playwright>=1.62,<2.0"
+   playwright install chromium
+   ```
 
 4. **Set up environment variables**
 
@@ -248,27 +253,55 @@ Requires Python 3.9+.
 — push it to your repo, then in the Render dashboard **New +** → **Blueprint**
 and point it at the repo. It provisions one web service:
 
-- **Runtime**: Python, pinned via `.python-version` (3.13).
-- **Build**: `pip install -r requirements.txt && playwright install chromium`
-  — the second half installs the headless Chromium binary the Business
-  Website component's JS-render fallback needs (see [Business Website
-  Component](#business-website-component)); safe to drop from the build
-  command if you never expect JS-heavy sites and want a faster build.
+- **Runtime**: Python, pinned via `.python-version` (3.12 — chosen for
+  broad prebuilt-wheel availability; Render's own default at one point
+  landed on 3.14, which several of this app's heavier dependencies
+  didn't have wheels for yet).
+- **Build**: `pip install -r requirements.txt`. **Playwright is
+  deliberately not installed** — its browser binary + OS libraries don't
+  fit the free tier's 512MB. The Business Website component's JS-render
+  fallback (see [Business Website
+  Component](#business-website-component)) degrades automatically when
+  Playwright isn't importable — every call site in
+  `src/components/scrape_website.py` already catches that as just
+  another exception and falls back to the plain `requests` fetch, so
+  the app runs fine, it just won't render JS-heavy sites. To get that
+  back on a bigger instance: add `playwright>=1.62,<2.0` back to
+  `requirements.txt` and change the build command to
+  `pip install -r requirements.txt && playwright install --with-deps chromium`.
 - **Start**: `gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --threads 4
-  --timeout 120`. Deliberately **1 worker**, several threads — the
-  sentence-transformers embedding model used by the RAG pipeline loads
-  once per worker *process*, so more workers multiply memory for no real
-  throughput gain on an app that's I/O-bound (LLM/HTTP calls), not
-  CPU-bound. Confirmed locally that 2 workers can OOM-kill under memory
-  pressure; threads share the one process's already-loaded model instead.
-  `--timeout 120` gives synchronous LLM calls (chat, fix generation,
-  scoring) room — the audit and agent-loop routes return immediately and
-  do their real work in a background thread either way.
+  --timeout 120`. **1 worker**, several threads — no reason for more on
+  an app that's I/O-bound (LLM/HTTP calls), not CPU-bound, and it avoids
+  needless duplicate process overhead on a memory-constrained host. No
+  `--preload` — that flag defaults off in gunicorn already (it's a bare
+  flag, not `--preload on/off`), and its memory benefit (workers sharing
+  one pre-loaded copy via copy-on-write after fork) only applies with
+  multiple workers anyway. `--timeout 120` gives synchronous LLM calls
+  (chat, fix generation, scoring) room — the audit and agent-loop routes
+  return immediately and do their real work in a background thread
+  either way.
+- **Startup memory**: two changes together got this app to boot in
+  ~30MB instead of OOM-killing on Render's 512MB free tier (measured
+  locally under gunicorn):
+  1. **No local embedding model.** RAG embeddings go through
+     `src.agents.embed()` (OpenRouter's `/embeddings` endpoint) instead
+     of a locally-run sentence-transformers model — which pulled in
+     `torch`, by far the single heaviest thing this app ever loaded.
+     There's no in-process model to load at all now, at boot or ever —
+     see [RAG Pipeline](#rag-pipeline).
+  2. **Lazy imports for what's left.** `chromadb` and `langgraph` are
+     still real dependencies, but are imported inside the functions
+     that actually use them (`src/rag.py`'s `_get_client()`,
+     `src/agent/graph.py`'s `build_graph()`) rather than at module top
+     level, and `app.py` no longer kicks off the RAG index build at
+     import time — `src.rag.retrieve()` builds it synchronously on its
+     own first call instead (`src.rag._ensure_ready`). Together this
+     means gunicorn boot, and Render's health check, only pay for
+     `chromadb`/`langgraph` the first time a request actually needs
+     them, never before.
 - **Env vars**: `SECRET_KEY` is auto-generated by Render. `FLASK_DEBUG` is
-  set to `false` (this also matters functionally, not just for
-  hygiene — the RAG background embedding build only auto-starts under
-  gunicorn when `FLASK_DEBUG` is explicitly not `"true"`, see the
-  `WERKZEUG_RUN_MAIN`/`FLASK_DEBUG` check near the top of `app.py`).
+  set to `false` for production behavior (secure cookies; see
+  `app.config.update(...)` near the top of `app.py`).
   `OPENROUTER_API_KEY` and the `SUPABASE_*` vars are marked `sync: false`
   — Render prompts for these in the dashboard rather than committing
   them; fill in `OPENROUTER_API_KEY` at minimum, and the Supabase ones
@@ -304,6 +337,7 @@ See `.env.example` for the full list with descriptions. Summary:
 | `FLASK_DEBUG` | Enables Flask debug mode | `true` |
 | `OPENROUTER_API_KEY` | Auth for OpenRouter model calls | _none — must be set_ |
 | `OPENROUTER_MODEL` | Default OpenRouter model id | `nvidia/nemotron-3-super-120b-a12b:free` |
+| `OPENROUTER_EMBEDDING_MODEL` | OpenRouter embedding model id, used by RAG (`src.agents.embed`) | `openai/text-embedding-3-small` |
 | `SUPABASE_URL` | Supabase project URL | _optional — only used in Supabase mode, see [Data Source](#data-source-local-sqlite-or-supabase)_ |
 | `SUPABASE_API_KEY` | Supabase **service-role** key (not the anon key — the app needs to bypass RLS) | _optional — only used in Supabase mode_ |
 | `SUPABASE_DB_URL` | Direct Postgres connection string (session pooler) | _optional — only used by the "Clone Local Data to Supabase" button, to create tables_ |
@@ -515,16 +549,24 @@ Both reuse the same chunker.
   more than one chunk, consecutive chunks overlap by about 50 tokens (the
   trailing content of one reappears at the start of the next) so context
   right at the cut point isn't lost to either chunk.
-- **Embedding**: each chunk's text is embedded with sentence-transformers
-  (`all-MiniLM-L6-v2`) and stored in a persistent ChromaDB collection at
-  `data/chroma/`, along with its section heading and token count.
+- **Embedding**: each chunk's text is embedded via `src.agents.embed()`
+  — OpenRouter's `/embeddings` endpoint (`openai/text-embedding-3-small`
+  by default, `OPENROUTER_EMBEDDING_MODEL` to change it), the same
+  provider and API key already used for chat calls — and stored in a
+  persistent ChromaDB collection at `data/chroma/`, along with its
+  section heading and token count. No local embedding model runs in
+  this process; earlier this used sentence-transformers (`all-MiniLM-
+  L6-v2`), which pulls in torch and was the single biggest thing this
+  app loaded into memory, more than Render's 512MB free tier could
+  handle at boot — see [Deploying to Render](#deploying-to-render).
 - **Retrieval**: `retrieve(question, top_k=3)` embeds the question and
   returns the 3 most similar chunks by cosine similarity, each with its
   similarity score.
-- **Startup indexing**: `app.py` kicks off chunking and embedding in a
-  background thread on startup so the app itself isn't blocked, and
-  exposes progress via `GET /rag/status` (`ready`, `building`,
-  `chunk_count`, `chunk_size`, `error`).
+- **Lazy indexing**: nothing builds the index at import time anymore.
+  The first call to `retrieve()` after boot builds it synchronously if
+  it isn't ready yet (`src.rag._ensure_ready`); `GET /rag/status`
+  exposes progress either way (`ready`, `building`, `chunk_count`,
+  `chunk_size`, `error`).
 - **Chunks page** (`/chunks`, requires login): lists every currently
   indexed chunk (id, section heading, token count, full text), and lets
   you pick a different chunk size and re-run chunking and embedding via
@@ -673,10 +715,13 @@ collapsed `<details>`.
 combined result; errors from either surface as a banner rather than a
 blank page. The "Business Website" card on `/components` links here.
 
-**Setup note**: after `pip install -r requirements.txt`, Playwright
-still needs its browser binary downloaded once:
+**Setup note**: Playwright isn't in `requirements.txt` by default (see
+[Installation & Local Setup](#installation--local-setup) and
+[Deploying to Render](#deploying-to-render)) — install it plus its
+browser binary once to enable the JS-render fallback locally:
 
 ```bash
+pip install "playwright>=1.62,<2.0"
 playwright install chromium
 ```
 

@@ -3,21 +3,26 @@ services:
     name: discovr
     runtime: python
     plan: free
-    # --with-deps also apt-get installs the OS shared libraries Chromium
-    # needs (libnss3, libatk, etc.) -- a fresh container has the browser
-    # binary without them otherwise, and Chromium fails to launch even
-    # though the download succeeded. If Render's build sandbox ever
-    # blocks the apt-get step, the app still runs fine: every Playwright
-    # call site in src/components/scrape_website.py already catches a
-    # missing/failing browser and falls back to the plain `requests`
-    # fetch (see render_method in its docstring), it just won't render
-    # JS-heavy sites.
-    buildCommand: "pip install -r requirements.txt && playwright install --with-deps chromium"
-    # 1 worker, several threads -- not more workers: the sentence-transformers
-    # embedding model (RAG) loads once per worker *process*, so extra workers
-    # multiply memory for no throughput gain on an I/O-bound app. Confirmed
-    # locally that 2 workers OOMs on a memory-constrained host; threads share
-    # one process's model instead.
+    # playwright is intentionally NOT in requirements.txt / this build
+    # command. Its own browser binary + OS libs (~300-400MB) don't fit
+    # the free tier's 512MB, and its own headless-render fallback can't
+    # run reliably there anyway. src/components/scrape_website.py
+    # already catches Playwright being uninstalled (ModuleNotFoundError
+    # is just another Exception to its existing broad except) and falls
+    # back to the plain `requests` fetch -- it just won't render
+    # JS-heavy sites. To get that back on a bigger instance: add
+    # `playwright>=1.62,<2.0` back to requirements.txt and append
+    # `&& playwright install --with-deps chromium` below.
+    buildCommand: "pip install -r requirements.txt"
+    # 1 worker, several threads -- not more workers: RAG embeddings now
+    # go through OpenRouter's API (src.agents.embed), not a local model,
+    # so there's no longer a big in-process model to dodge duplicating --
+    # this is just about avoiding needless memory/process overhead on an
+    # I/O-bound app (LLM/HTTP calls), not CPU-bound work. No --preload:
+    # that flag defaults off in gunicorn already (it's a bare flag, not
+    # --preload on/off), and turning it on wouldn't help a single-worker
+    # process anyway -- preload's memory win only applies when multiple
+    # forked workers share one pre-loaded copy via copy-on-write.
     startCommand: "gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --threads 4 --timeout 120"
     healthCheckPath: /
     envVars:
@@ -31,6 +36,8 @@ services:
         sync: false
       - key: OPENROUTER_MODEL
         value: nvidia/nemotron-3-super-120b-a12b:free
+      - key: OPENROUTER_EMBEDDING_MODEL
+        value: openai/text-embedding-3-small
       # Optional -- only needed if the admin page's Data Source is
       # switched to Supabase (see README.md#data-source-local-sqlite-or-supabase).
       - key: SUPABASE_URL

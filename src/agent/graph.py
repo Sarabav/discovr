@@ -21,8 +21,6 @@ import re
 import sys
 from typing import Annotated, Optional, TypedDict
 
-from langgraph.graph import END, StateGraph
-
 from src.agents import ask_structured, strip_code_fence
 from src.checkers import LOCAL_BUSINESS_TYPES
 from src.components.fix_generator import generate_fix, verify_fix
@@ -561,6 +559,12 @@ def _log_score_projection(final_state, business_id):
 
 
 def build_graph():
+    # Imported here, not at module top: this module is imported by
+    # app.py at gunicorn boot (for run_agent_loop), so a top-level
+    # langgraph import loaded it into memory before any request came
+    # in. It's only actually needed once an agent loop run starts.
+    from langgraph.graph import END, StateGraph
+
     graph = StateGraph(AgentState)
     graph.add_node("suggest", suggest_node)
     graph.add_node("plan", plan_node)

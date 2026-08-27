@@ -73,11 +73,11 @@ app.config.update(
 )
 init_db()
 
-# Avoid starting the (heavier) embedding build twice under the Werkzeug
-# debug reloader, which otherwise re-imports this module in a watcher
-# process before handing off to the real serving process.
-if os.environ.get("WERKZEUG_RUN_MAIN") == "true" or os.environ.get("FLASK_DEBUG", "true").lower() != "true":
-    start_background_build()
+# The knowledge-base RAG index is no longer built eagerly here at import
+# time -- src.rag.retrieve() builds it synchronously on its own first
+# call instead (see src.rag._ensure_ready), so gunicorn boot stays cheap
+# (no chromadb/sentence-transformers/torch loaded) instead of spiking
+# memory before the process has served a single request.
 
 
 @app.route("/")

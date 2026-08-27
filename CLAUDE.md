@@ -19,11 +19,11 @@
 
 ## 🧰 Stack
 - 🐍 Flask, SQLite, Supabase, GitHub OAuth
-- 🤖 OpenRouter (model-agnostic LLM calls)
-- 🕸️ LangGraph (the agent loop's state machine — `src/agent/graph.py`)
-- 🔎 sentence-transformers + ChromaDB (RAG: chunking, embedding, retrieval)
-- 🌐 requests + BeautifulSoup + Playwright (Business Website component; Playwright is a headless-render fallback for JS-heavy sites, needs `playwright install chromium` once)
-- 🚀 gunicorn on Render (`render.yaml`) — 1 worker/4 threads deliberately (see the file's comments): the RAG embedding model loads once per worker process, so extra workers just multiply memory
+- 🤖 OpenRouter (model-agnostic LLM calls, plus embeddings for RAG — no local embedding model, see `src/agents.py`'s `embed()`)
+- 🕸️ LangGraph (the agent loop's state machine — `src/agent/graph.py`; lazy-imported inside `build_graph()`, not at module top level)
+- 🔎 ChromaDB (RAG storage/retrieval; lazy-imported inside `src/rag.py`'s `_get_client()`)
+- 🌐 requests + BeautifulSoup (Business Website component); Playwright is an optional headless-render fallback for JS-heavy sites, not installed on Render by default (too heavy for the 512MB free tier) — degrades to the requests path automatically when not importable
+- 🚀 gunicorn on Render (`render.yaml`) — 1 worker/4 threads (see the file's comments)
 
 ## 🗂️ Code Structure
 - 🚪 **`app.py`** - Flask App entry point
@@ -41,9 +41,9 @@
 - 🗄️ **`src/db.py`** - the local SQLite backend: schema (`init_db`), connections, and every table's CRUD
 - ☁️ **`src/supabase_store.py`** - the Supabase backend, same function signatures as `src/db.py`; `ensure_schema()` creates tables via a direct Postgres connection (`SUPABASE_DB_URL`, since the REST API can't run DDL) and disables RLS on each; `clone_local_to_supabase()` runs that then does an idempotent row copy from local SQLite, used by the admin page's clone button
 - 🔑 **`src/supabase_client.py`** - cached Supabase client (service-role key, bypasses RLS) for row reads/writes; schema creation goes through `psycopg2` + `SUPABASE_DB_URL` instead, see above
-- 🤖 **`src/agents.py`** - OpenRouter model access
+- 🤖 **`src/agents.py`** - OpenRouter model access; `embed()` calls its `/embeddings` endpoint for RAG (no local embedding model)
 - 💬 **`src/chatbot.py`** - `classify_intent`/`answer_question`/`resolve_finding_ref`/`describe_progress`: routes every chat message by real LLM-classified intent, answers grounded in the user's real scores when they have any, never a canned response
-- 🔎 **`src/rag.py`** - chunking, embedding, ChromaDB storage and retrieval; two collection kinds — one shared `knowledge_base`, one `business_<id>` per audited business (`ingest_business`/`retrieve_business_context`)
+- 🔎 **`src/rag.py`** - chunking, embedding (via `src.agents.embed`), ChromaDB storage and retrieval; two collection kinds — one shared `knowledge_base`, one `business_<id>` per audited business (`ingest_business`/`retrieve_business_context`); builds the knowledge-base index lazily on `retrieve()`'s first call (`_ensure_ready`), not at app boot
 - 👍 **`src/ratings.py`** - thumbs up/down persistence and stats
 - 🌐 **`src/components/`** - real (non-mocked) data-gathering components, one module per component (e.g. `scrape_website.py`); each has a matching page at `/components/<name>`
 - 🛠️ **`src/components/fix_generator.py`** - `generate_fix`/`verify_fix`/`generate_verified_fix`: turns a finding into a real fix, grounded in per-business RAG + the playbook's fixing tips, never invented; `POST /findings/<id>/fix` triggers it from the chat findings card

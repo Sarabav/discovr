@@ -13,7 +13,9 @@ from pathlib import Path
 from urllib.error import HTTPError
 
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
+EMBEDDINGS_URL = "https://openrouter.ai/api/v1/embeddings"
 DEFAULT_MODEL = "nvidia/nemotron-3-super-120b-a12b:free"
+DEFAULT_EMBEDDING_MODEL = "openai/text-embedding-3-small"
 PROMPTS_DIR = Path(__file__).resolve().parent / "prompts"
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 
@@ -78,6 +80,41 @@ def _chat_completion(messages, model=None, temperature=None, json_mode=False):
         "output_tokens": usage.get("completion_tokens", 0),
         "response_time_seconds": round(elapsed, 2),
     }
+
+
+def embed(texts, model=None):
+    """Embed a list of strings via OpenRouter's /embeddings endpoint --
+    the same provider and API key already used for chat calls, so no
+    local embedding model (sentence-transformers, and the torch it
+    pulls in) runs in this process. That in-process model was the
+    biggest single contributor to the memory Render's free tier OOM-
+    killed on.
+
+    Returns a list of float vectors, one per input text, in the same
+    order as `texts` -- sorted by the response's own `index` field
+    rather than trusted to arrive in request order."""
+    api_key = os.environ["OPENROUTER_API_KEY"]
+    model = model or os.environ.get("OPENROUTER_EMBEDDING_MODEL", DEFAULT_EMBEDDING_MODEL)
+    payload = json.dumps({"model": model, "input": texts}).encode()
+
+    request = urllib.request.Request(
+        EMBEDDINGS_URL,
+        data=payload,
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        },
+    )
+
+    try:
+        with urllib.request.urlopen(request, timeout=30) as response:
+            data = json.loads(response.read())
+    except HTTPError as error:
+        detail = error.read().decode()
+        raise RuntimeError(f"OpenRouter embeddings request failed ({error.code}): {detail}") from error
+
+    ordered = sorted(data["data"], key=lambda item: item["index"])
+    return [item["embedding"] for item in ordered]
 
 
 def ask(message, model=None):

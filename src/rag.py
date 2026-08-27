@@ -17,9 +17,7 @@ import re
 import threading
 from pathlib import Path
 
-import chromadb
-from sentence_transformers import SentenceTransformer
-
+from src.agents import embed
 from src.checkers import LOCAL_BUSINESS_TYPES
 
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
@@ -29,9 +27,7 @@ COLLECTION_NAME = "knowledge_base"
 BUSINESS_COLLECTION_PREFIX = "business_"
 DEFAULT_CHUNK_SIZE = 500
 DEFAULT_CHUNK_OVERLAP = 50
-EMBEDDING_MODEL_NAME = "all-MiniLM-L6-v2"
 
-_model = None
 _client = None
 _lock = threading.Lock()
 _status = {
@@ -43,16 +39,11 @@ _status = {
 }
 
 
-def _get_model():
-    global _model
-    if _model is None:
-        _model = SentenceTransformer(EMBEDDING_MODEL_NAME)
-    return _model
-
-
 def _get_client():
     global _client
     if _client is None:
+        import chromadb
+
         CHROMA_DIR.mkdir(parents=True, exist_ok=True)
         _client = chromadb.PersistentClient(path=str(CHROMA_DIR))
     return _client
@@ -181,8 +172,7 @@ def build_index(chunk_size=DEFAULT_CHUNK_SIZE, overlap=DEFAULT_CHUNK_OVERLAP):
 
     try:
         chunks = chunk_knowledge_base(chunk_size, overlap)
-        model = _get_model()
-        embeddings = model.encode([c["text"] for c in chunks]).tolist()
+        embeddings = embed([c["text"] for c in chunks])
 
         client = _get_client()
         try:
@@ -220,6 +210,22 @@ def start_background_build(chunk_size=DEFAULT_CHUNK_SIZE):
     return thread
 
 
+def _ensure_ready():
+    """Builds the knowledge-base index synchronously on the first call
+    that actually needs it (retrieve()), rather than app.py kicking off
+    start_background_build() unconditionally at import time. That eager
+    boot-time build was the other half of the startup memory spike:
+    even with lazy imports above, calling build_index() immediately at
+    boot still pulls the whole model+chromadb stack into memory before
+    the process has served a single request. Building on first real use
+    instead means gunicorn can boot (and pass Render's health check)
+    without ever loading them if nothing's asked for RAG yet."""
+    with _lock:
+        if _status["ready"] or _status["building"]:
+            return
+    build_index()
+
+
 def get_indexed_chunks():
     """Return the chunks currently stored in ChromaDB, in order."""
     client = _get_client()
@@ -243,9 +249,11 @@ def get_indexed_chunks():
 
 
 def retrieve(question, top_k=3):
-    """Embed the question and return the top_k most similar chunks."""
-    model = _get_model()
-    query_embedding = model.encode([question]).tolist()
+    """Embed the question and return the top_k most similar chunks.
+    Builds the index first if this is the first call since boot (see
+    _ensure_ready)."""
+    _ensure_ready()
+    query_embedding = embed([question])
 
     client = _get_client()
     collection = client.get_collection(COLLECTION_NAME)
@@ -342,8 +350,7 @@ def ingest_business(business_id, snapshot):
     if not chunks:
         return 0
 
-    model = _get_model()
-    embeddings = model.encode([c["text"] for c in chunks]).tolist()
+    embeddings = embed([c["text"] for c in chunks])
 
     source_url = snapshot.get("final_url") or snapshot.get("url") or ""
     page_title = snapshot.get("title") or ""
@@ -377,8 +384,7 @@ def retrieve_business_context(business_id, query, k=5):
     except Exception:
         return []
 
-    model = _get_model()
-    query_embedding = model.encode([query]).tolist()
+    query_embedding = embed([query])
     results = collection.query(query_embeddings=query_embedding, n_results=k)
     return results["documents"][0] if results["ids"] and results["ids"][0] else []
 
