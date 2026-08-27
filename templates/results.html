@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Discovr — Results</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='results.css') }}">
+</head>
+<body>
+  {% set active_page = 'results' %}
+  {% include "header.html" %}
+  {% include "admin_bar.html" %}
+
+  <main class="container page-main">
+    <div class="page-header">
+      <h1>Results</h1>
+      <p class="page-subtitle">Chatbot response ratings</p>
+    </div>
+
+    <section class="card">
+      <h2>Stats</h2>
+      <div class="results-stats">
+        <div class="stat-tile">
+          <span class="stat-value" id="stat-up">{{ stats.up }}</span>
+          <span class="stat-label">Helpful</span>
+        </div>
+        <div class="stat-tile">
+          <span class="stat-value" id="stat-down">{{ stats.down }}</span>
+          <span class="stat-label">Not Helpful</span>
+        </div>
+        <div class="stat-tile">
+          <span class="stat-value" id="stat-positive">{{ stats.positive_percent }}%</span>
+          <span class="stat-label">Positive</span>
+        </div>
+        <div class="stat-tile">
+          <span class="stat-value" id="stat-total">{{ stats.total }}</span>
+          <span class="stat-label">Total Rated</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Rated Responses</h2>
+      <div id="results-list" class="results-list">
+        {% for entry in ratings %}
+        <div class="result-row" data-id="{{ entry.id }}">
+          <div class="result-summary">
+            <span class="rating-badge {{ 'positive' if entry.rating == 'up' else 'negative' }}">{{ "Helpful" if entry.rating == "up" else "Not helpful" }}</span>
+            <span class="model-badge">{{ entry.model }}</span>
+            <span class="result-question">{{ entry.question }}</span>
+            <span class="result-answer">{{ entry.answer }}</span>
+          </div>
+          <div class="result-detail hidden">
+            <dl>
+              <dt>Question</dt>
+              <dd>{{ entry.question }}</dd>
+              <dt>Answer</dt>
+              <dd>{{ entry.answer }}</dd>
+              <dt>Rating</dt>
+              <dd>{{ entry.rating }}</dd>
+              <dt>Model</dt>
+              <dd>{{ entry.model }}</dd>
+              <dt>Timestamp</dt>
+              <dd>{{ entry.timestamp }}</dd>
+              <dt>Response Time</dt>
+              <dd>{{ entry.response_time_seconds }}s</dd>
+              <dt>Input Tokens</dt>
+              <dd>{{ entry.input_tokens }}</dd>
+              <dt>Output Tokens</dt>
+              <dd>{{ entry.output_tokens }}</dd>
+            </dl>
+          </div>
+        </div>
+        {% else %}
+        <p class="settings-hint">No responses rated yet.</p>
+        {% endfor %}
+      </div>
+    </section>
+  </main>
+
+  <script src="{{ url_for('static', filename='results.js') }}"></script>
+</body>
+</html>

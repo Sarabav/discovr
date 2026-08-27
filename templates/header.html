@@ -1,0 +1,24 @@
+<header class="site-header">
+  <div class="container header-inner">
+    <a class="wordmark" href="{{ url_for('dashboard_page') }}">Discovr</a>
+
+    <nav class="site-nav">
+      <a href="{{ url_for('dashboard_page') }}" class="{{ 'active' if active_page == 'dashboard' }}">Dashboard</a>
+      <a href="{{ url_for('settings_page') }}" class="{{ 'active' if active_page == 'settings' }}">Settings</a>
+    </nav>
+
+    <div class="avatar-menu">
+      <button type="button" id="avatar-toggle" class="avatar-button" aria-label="Account menu">{{ user_name[0]|upper }}</button>
+      <div id="avatar-dropdown" class="avatar-dropdown hidden">
+        {% if session.is_admin %}
+        <a href="{{ url_for('admin_page') }}" class="{{ 'active' if active_page == 'admin' }}">Admin</a>
+        <div class="avatar-dropdown-divider"></div>
+        {% endif %}
+        <a href="{{ url_for('logout') }}">Log out</a>
+      </div>
+    </div>
+  </div>
+</header>
+
+<link rel="stylesheet" href="{{ url_for('static', filename='header.css') }}">
+<script src="{{ url_for('static', filename='header.js') }}"></script>

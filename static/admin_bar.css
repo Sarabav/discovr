@@ -1,0 +1,42 @@
+.admin-bar {
+  background: var(--muted);
+  color: var(--paper);
+}
+
+.admin-bar-inner {
+  height: 40px;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.admin-bar-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  opacity: 0.85;
+}
+
+.admin-bar-nav {
+  display: flex;
+  gap: 18px;
+  margin-left: auto;
+}
+
+.admin-bar-nav a {
+  color: var(--paper);
+  font-size: 0.85rem;
+  opacity: 0.75;
+  padding: 2px 0;
+  border-bottom: 2px solid transparent;
+}
+
+.admin-bar-nav a:hover {
+  opacity: 1;
+}
+
+.admin-bar-nav a.active {
+  opacity: 1;
+  border-bottom-color: var(--paper);
+}

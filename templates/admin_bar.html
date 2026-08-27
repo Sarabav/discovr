@@ -1,0 +1,13 @@
+<div class="admin-bar">
+  <div class="container admin-bar-inner">
+    <span class="admin-bar-label">Admin &mdash; internal tools</span>
+    <nav class="admin-bar-nav">
+      <a href="{{ url_for('components_page') }}" class="{{ 'active' if active_page == 'components' }}">Components</a>
+      <a href="{{ url_for('workflows_page') }}" class="{{ 'active' if active_page == 'workflows' }}">Workflows</a>
+      <a href="{{ url_for('chunks_page') }}" class="{{ 'active' if active_page == 'chunks' }}">Chunks</a>
+      <a href="{{ url_for('results_page') }}" class="{{ 'active' if active_page == 'results' }}">Results</a>
+    </nav>
+  </div>
+</div>
+
+<link rel="stylesheet" href="{{ url_for('static', filename='admin_bar.css') }}">

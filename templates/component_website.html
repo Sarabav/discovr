@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Discovr — Business Website Component</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='component_website.css') }}">
+</head>
+<body>
+  {% set active_page = 'components' %}
+  {% include "header.html" %}
+  {% include "admin_bar.html" %}
+
+  <main class="container page-main">
+    <div class="page-header">
+      <p class="page-back"><a href="{{ url_for('components_page') }}">&larr; Components</a></p>
+      <h1>Business Website</h1>
+      <p class="page-subtitle">
+        Fetches a business's website (plus a few likely internal pages) and extracts what an
+        AI system would actually see: visible text, structured data, contact details, and
+        which AI crawlers are allowed in.
+      </p>
+    </div>
+
+    <section class="card">
+      <p class="no-key-note">No API key required — this component only makes public HTTP requests.</p>
+
+      <div class="field">
+        <label for="website-url">Website URL</label>
+        <input type="text" id="website-url" value="https://www.wafflehouse.com">
+      </div>
+      <div class="example-row">
+        <button id="example-js-heavy" type="button" class="button-ghost example-btn">
+          Try a JS-heavy example (fresh2home.ca)
+        </button>
+      </div>
+      <div class="run-row">
+        <button id="run-button" type="button">Run</button>
+        <span id="run-status" class="save-status"></span>
+        <span id="render-method" class="render-method-badge hidden"></span>
+        <span id="elapsed-time" class="elapsed-time"></span>
+      </div>
+      <div id="error-banner" class="error-message hidden"></div>
+    </section>
+
+    <section id="results" class="hidden">
+      <section class="card">
+        <h2>Title &amp; Meta Description</h2>
+        <dl class="kv">
+          <dt>Title</dt>
+          <dd id="result-title"></dd>
+          <dt>Meta description</dt>
+          <dd id="result-meta"></dd>
+        </dl>
+      </section>
+
+      <section class="card">
+        <h2>Schema Markup Found</h2>
+        <dl class="kv">
+          <dt>Schema blocks found</dt>
+          <dd id="result-schema-blocks"></dd>
+          <dt>Business schema (LocalBusiness or subtype)</dt>
+          <dd id="result-schema-business"></dd>
+        </dl>
+        <pre id="result-schema" class="code-block"></pre>
+      </section>
+
+      <section class="card">
+        <h2>Crawler Access</h2>
+        <div id="result-crawlers" class="crawler-list"></div>
+      </section>
+
+      <section class="card">
+        <h2>NAP Extracted</h2>
+        <dl class="kv">
+          <dt>Name</dt>
+          <dd id="result-nap-name"></dd>
+          <dt>Phone</dt>
+          <dd id="result-nap-phone"></dd>
+          <dt>Address</dt>
+          <dd id="result-nap-address"></dd>
+        </dl>
+      </section>
+
+      <section class="card">
+        <h2>Page Text</h2>
+        <p class="text-meta"><span id="result-text-count"></span> characters total</p>
+        <pre id="result-text" class="code-block text-preview"></pre>
+        <button id="toggle-text" type="button" class="button-ghost">Show full text</button>
+      </section>
+
+      <section class="card">
+        <h2>Pages Crawled</h2>
+        <ul id="result-pages" class="pages-list"></ul>
+      </section>
+
+      <section id="unreachable-section" class="card hidden">
+        <h2>Unreachable Pages</h2>
+        <p class="text-meta">
+          Linked internally but failed on direct navigation, so it's invisible to AI
+          crawlers even though a human can click through to it from the site.
+        </p>
+        <ul id="result-unreachable" class="pages-list unreachable-list"></ul>
+      </section>
+
+      <details class="raw-json-details">
+        <summary>Raw JSON (for debugging)</summary>
+        <pre id="result-raw" class="code-block"></pre>
+      </details>
+    </section>
+  </main>
+
+  <script src="{{ url_for('static', filename='component_website.js') }}"></script>
+</body>
+</html>

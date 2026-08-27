@@ -1,0 +1,117 @@
+.settings-hint {
+  color: var(--muted);
+  font-size: 0.9rem;
+  margin-bottom: 14px;
+}
+
+.chunk-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.chunk-controls label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.chunk-controls input {
+  width: 90px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  font-size: 0.9rem;
+}
+
+.save-status {
+  font-size: 0.9rem;
+}
+
+.save-status.success {
+  color: var(--accent);
+}
+
+.save-status.error {
+  color: var(--bad);
+}
+
+#rebuild-progress {
+  margin-top: 12px;
+  border-radius: var(--radius-card);
+}
+
+.rebuild-progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  font-size: 0.8rem;
+  color: var(--muted);
+  border-bottom: 1px solid var(--line);
+}
+
+.rebuild-progress.hidden {
+  display: none;
+}
+
+.rebuild-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--line);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: rebuild-spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes rebuild-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.chunks-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.chunk-card {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  padding: 12px 14px;
+  background: var(--card);
+}
+
+.chunk-meta {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 8px;
+  font-size: 0.8rem;
+}
+
+.chunk-id {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--muted);
+}
+
+.chunk-heading {
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.chunk-tokens {
+  margin-left: auto;
+  color: var(--muted);
+}
+
+.chunk-text {
+  white-space: pre-wrap;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  margin: 0;
+}

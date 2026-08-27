@@ -1,0 +1,30 @@
+.data-source-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.clone-summary {
+  margin-top: 14px;
+}
+
+.clone-table-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.85rem;
+}
+
+.clone-row-error {
+  color: var(--bad);
+}
+
+.clone-error {
+  color: var(--bad);
+  font-size: 0.85rem;
+  margin: 10px 0 6px;
+}

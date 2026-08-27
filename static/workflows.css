@@ -1,0 +1,68 @@
+.workflows-grid {
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+.workflow-card {
+  display: flex;
+  flex-direction: column;
+}
+
+.workflow-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.workflow-pill {
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  color: var(--accent);
+}
+
+.workflow-steps-description {
+  margin: 0 0 12px;
+  padding-left: 18px;
+  font-size: 0.85rem;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.workflow-steps-description li {
+  margin-bottom: 4px;
+}
+
+.workflow-run-button {
+  align-self: flex-start;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  padding: 8px 16px;
+  border-radius: var(--radius-control);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.workflow-run-button:disabled {
+  background: var(--card);
+  color: var(--muted);
+  border: 1px solid var(--line);
+  cursor: default;
+}
+
+.workflow-run-button:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.workflow-error {
+  margin: 10px 0 0;
+  font-size: 0.82rem;
+  color: var(--bad);
+}
+
+.workflow-steps {
+  margin-top: 12px;
+}

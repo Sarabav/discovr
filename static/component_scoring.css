@@ -1,0 +1,116 @@
+.overall-score-row {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.overall-score-value {
+  font-family: var(--font-display);
+  font-size: 2.4rem;
+  font-weight: 600;
+}
+
+.overall-score-grade {
+  color: var(--muted);
+  font-size: 1rem;
+}
+
+.category-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.category-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  font-size: 0.9rem;
+}
+
+.category-score {
+  font-weight: 600;
+}
+
+.category-skipped {
+  color: var(--muted);
+  font-style: italic;
+  font-size: 0.85rem;
+}
+
+.finding-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.finding-card {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  padding: 14px 16px;
+}
+
+.finding-badges {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.badge {
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 2px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  white-space: nowrap;
+}
+
+.badge.priority-high {
+  color: var(--bad);
+  border-color: var(--bad);
+}
+
+.badge.priority-medium {
+  color: var(--accent-2);
+  border-color: var(--accent-2);
+}
+
+.badge.priority-low {
+  color: var(--muted);
+}
+
+.badge.category-badge {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.badge.fix-type-generated {
+  color: var(--good);
+  border-color: var(--good);
+}
+
+.badge.fix-type-instruction {
+  color: var(--muted);
+}
+
+.finding-title {
+  margin: 0 0 4px;
+  font-size: 0.95rem;
+}
+
+.finding-description {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.finding-why {
+  margin: 8px 0 0;
+  font-size: 0.82rem;
+  font-style: italic;
+  color: var(--text);
+}

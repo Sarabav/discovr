@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Discovr — Components</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='components.css') }}">
+</head>
+<body>
+  {% set active_page = 'components' %}
+  {% include "header.html" %}
+  {% include "admin_bar.html" %}
+
+  <main class="container page-main">
+    <div class="page-header">
+      <h1>Components</h1>
+      <p class="page-subtitle">How the analysis agent is put together</p>
+    </div>
+
+    <section class="card">
+      <h2>Data Connectors</h2>
+      <p class="settings-hint">What the agent reads from.</p>
+      <div class="components-grid">
+        <a class="component-card connector" href="{{ url_for('component_website_page') }}">
+          <h3>Business Website</h3>
+          <p>Page copy, schema markup, robots.txt</p>
+          <p class="component-try">Try it &rarr;</p>
+        </a>
+        <div class="component-card connector">
+          <h3>Google Business Profile</h3>
+          <p>Name, address, phone, hours, reviews</p>
+        </div>
+        <div class="component-card connector">
+          <h3>Reddit Search</h3>
+          <p>Third-party mentions — code is ready, blocked by Reddit at the network for now</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Agent</h2>
+      <p class="settings-hint">Decides what to do.</p>
+      <div class="components-grid">
+        <div class="component-card agent">
+          <h3>Discovr Agent</h3>
+          <p class="component-subtitle">Claude + LangGraph</p>
+          <p>Scores the business, ranks findings by impact, decides which fix matters most.</p>
+        </div>
+        <div class="component-card agent">
+          <h3>Memory</h3>
+          <p><strong>Chroma</strong> — playbook rules + this business's real content</p>
+          <p><strong>SQLite</strong> — past scores, so it knows what changed</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Tools</h2>
+      <p class="settings-hint">What the agent acts through.</p>
+      <div class="components-grid">
+        <a class="component-card tool" href="{{ url_for('component_scoring_page') }}">
+          <h3>Runs the Rule Checks</h3>
+          <p>NAP consistency, schema fields, crawler access</p>
+          <p class="component-try">Try it &rarr;</p>
+        </a>
+        <div class="component-card tool">
+          <h3>Writes the Fixes</h3>
+          <p>Schema markup, FAQ blocks, rewritten page copy</p>
+        </div>
+        <div class="component-card tool">
+          <h3>Builds the Dashboard</h3>
+          <p>Score, findings, fixes, progress over time</p>
+        </div>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

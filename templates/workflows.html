@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Discovr — Workflows</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='components.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='chat.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='workflows.css') }}">
+</head>
+<body>
+  {% set active_page = 'workflows' %}
+  {% include "header.html" %}
+  {% include "admin_bar.html" %}
+
+  <main class="container page-main">
+    <div class="page-header">
+      <h1>Workflows</h1>
+      <p class="page-subtitle">What the agent runs end to end</p>
+    </div>
+
+    <section class="components-grid workflows-grid">
+      <div class="component-card workflow-card" data-workflow="audit">
+        <h3>AI Visibility Audit</h3>
+        <div class="workflow-pills">
+          <span class="workflow-pill">Business Website</span>
+          <span class="workflow-pill">Rule Checks</span>
+          <span class="workflow-pill">AI Agent</span>
+          <span class="workflow-pill">Dashboard</span>
+        </div>
+        <ol class="workflow-steps-description">
+          <li>Scrape the business's website for page copy, schema markup and crawler settings.</li>
+          <li>Run the rule checks and score each category.</li>
+          <li>Rank the findings by impact with AI and show the report in chat.</li>
+        </ol>
+        <button type="button" class="workflow-run-button">Run</button>
+        <p class="workflow-error hidden"></p>
+        <div class="workflow-steps step-list hidden"></div>
+      </div>
+
+      <div class="component-card workflow-card" data-workflow="fix">
+        <h3>Fix My Site</h3>
+        <div class="workflow-pills">
+          <span class="workflow-pill">AI Agent</span>
+          <span class="workflow-pill">Fix Generator</span>
+          <span class="workflow-pill">Rule Checks</span>
+          <span class="workflow-pill">Dashboard</span>
+        </div>
+        <ol class="workflow-steps-description">
+          <li>The agent picks the highest-impact finding and explains why.</li>
+          <li>Generates a fix grounded in the business's real content.</li>
+          <li>Verifies its own output and loops to the next finding until everything is resolved or needs the owner.</li>
+        </ol>
+        <button type="button" class="workflow-run-button">Run</button>
+        <p class="workflow-error hidden"></p>
+        <div class="workflow-steps agent-step-list hidden"></div>
+      </div>
+
+      <div class="component-card workflow-card">
+        <h3>Weekly Re-Check</h3>
+        <div class="workflow-pills">
+          <span class="workflow-pill">Business Website</span>
+          <span class="workflow-pill">Rule Checks</span>
+          <span class="workflow-pill">AI Agent</span>
+          <span class="workflow-pill">Dashboard</span>
+        </div>
+        <ol class="workflow-steps-description">
+          <li>Re-scrape and re-score the site on a schedule.</li>
+          <li>Compare against the previous audit stored in memory.</li>
+          <li>Report what changed and alert the owner if the score moved. Runs as a cron job.</li>
+        </ol>
+        <button type="button" class="workflow-run-button" disabled>Not implemented yet</button>
+      </div>
+    </section>
+  </main>
+
+  <script src="{{ url_for('static', filename='workflows.js') }}"></script>
+</body>
+</html>

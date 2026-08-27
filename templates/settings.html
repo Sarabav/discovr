@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Discovr — Settings</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='settings.css') }}">
+</head>
+<body>
+  {% set active_page = 'settings' %}
+  {% include "header.html" %}
+
+  <main class="container page-main">
+    <div class="page-header">
+      <h1>Settings</h1>
+      <p class="page-subtitle">Chatbot settings</p>
+    </div>
+
+    <section class="card">
+      <h2>Knowledge Base</h2>
+      <p class="settings-hint">
+        Facts the chatbot can state. Saved to <code>data/knowledge_base.md</code>.
+      </p>
+      <textarea id="knowledge-base-input" class="settings-textarea">{{ knowledge_base }}</textarea>
+      <div class="settings-actions">
+        <button id="save-knowledge-base" type="button">Save Knowledge Base</button>
+        <span id="knowledge-base-status" class="save-status"></span>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Chatbot Prompt</h2>
+      <p class="settings-hint">
+        Behavior, tone, and structure of the chatbot. Saved to <code>src/prompts/website_chatbot.txt</code>.
+      </p>
+      <textarea id="prompt-input" class="settings-textarea">{{ prompt }}</textarea>
+      <div class="settings-actions">
+        <button id="save-prompt" type="button">Save Prompt</button>
+        <span id="prompt-status" class="save-status"></span>
+      </div>
+    </section>
+  </main>
+
+  <script src="{{ url_for('static', filename='settings.js') }}"></script>
+</body>
+</html>

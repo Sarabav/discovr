@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Discovr — Is AI recommending your business?</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='landing.css') }}">
+</head>
+<body class="landing">
+  <section class="hero">
+    <div class="hero-glow"></div>
+    <div class="container">
+      <nav class="landing-nav">
+        <span class="wordmark">Discovr</span>
+        <div class="landing-nav-links">
+          <a href="{{ url_for('login_page') }}" class="landing-nav-login">Log in</a>
+          <a href="{{ url_for('signup_page') }}" class="landing-nav-cta">Run a free audit</a>
+        </div>
+      </nav>
+
+      <div class="hero-inner">
+        <h1 class="hero-headline">Is AI recommending<br>your business?</h1>
+        <p class="hero-subline">
+          Discovr checks what ChatGPT, Perplexity, and other AI assistants actually
+          know about your business, then tells you exactly what to fix.
+        </p>
+        <div class="hero-actions">
+          <a href="{{ url_for('signup_page') }}" class="hero-cta-primary">Run a free audit</a>
+          <a href="#how-it-works" class="hero-cta-ghost">See how it works</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="how-it-works">
+    <div class="container">
+      <div class="browser-frame">
+        <div class="browser-frame-bar">
+          <span class="browser-dot dot-red"></span>
+          <span class="browser-dot dot-amber"></span>
+          <span class="browser-dot dot-green"></span>
+        </div>
+        <div class="browser-frame-body">
+          <div class="mock-message user">Is AI recommending Riverside Plumbing?</div>
+          <div class="mock-message assistant">
+            <p>Here's the AI-visibility audit for Riverside Plumbing.</p>
+            <div class="mock-report">
+              <div class="mock-report-score">
+                <span class="score-number">58</span><span class="score-total">/100</span>
+                <span class="score-grade">Needs Improvement</span>
+              </div>
+              <div class="mock-report-categories">
+                <div class="mock-cat-row"><span>NAP Consistency</span><span>62/100</span></div>
+                <div class="mock-cat-row"><span>Structured Data</span><span>40/100</span></div>
+                <div class="mock-cat-row"><span>Content Clarity</span><span>75/100</span></div>
+                <div class="mock-cat-row"><span>Crawler Access</span><span>48/100</span></div>
+                <div class="mock-cat-row"><span>Mentions</span><span>65/100</span></div>
+              </div>
+            </div>
+            <p>Ask me anything about these results.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container three-up">
+      <div class="three-up-item">
+        <h3>We read your site, your Google listing, and the open web</h3>
+        <p>Every source an AI assistant might already be pulling from.</p>
+      </div>
+      <div class="three-up-item">
+        <h3>We score what AI assistants can actually understand</h3>
+        <p>NAP consistency, structured data, content clarity, crawler access, and mentions.</p>
+      </div>
+      <div class="three-up-item">
+        <h3>We write the fixes for you</h3>
+        <p>Prioritized, specific, ready to hand to whoever runs your site.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="section score-section">
+    <div class="container score-section-inner">
+      <div class="score-ring-card">
+        <div class="score-ring" style="--pct: 72;">
+          <span class="score-ring-number">72</span>
+          <span class="score-ring-label">/100</span>
+        </div>
+        <p class="score-ring-caption">A sample AI-visibility score</p>
+      </div>
+      <div class="score-section-copy">
+        <h2>One score. Five reasons behind it.</h2>
+        <p>
+          Every audit breaks down into NAP consistency, structured data,
+          content clarity, crawler access, and mentions, each with specific
+          findings and a prioritized fix.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <footer class="cta-band">
+    <div class="container cta-band-inner">
+      <h2>Ready to see your score?</h2>
+      <a href="{{ url_for('signup_page') }}" class="hero-cta-primary">Run a free audit</a>
+      <p class="cta-band-footer">Discovr — a proof of concept.</p>
+    </div>
+  </footer>
+</body>
+</html>

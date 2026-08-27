@@ -1,0 +1,50 @@
+services:
+  - type: web
+    name: discovr
+    runtime: python
+    plan: free
+    # --with-deps also apt-get installs the OS shared libraries Chromium
+    # needs (libnss3, libatk, etc.) -- a fresh container has the browser
+    # binary without them otherwise, and Chromium fails to launch even
+    # though the download succeeded. If Render's build sandbox ever
+    # blocks the apt-get step, the app still runs fine: every Playwright
+    # call site in src/components/scrape_website.py already catches a
+    # missing/failing browser and falls back to the plain `requests`
+    # fetch (see render_method in its docstring), it just won't render
+    # JS-heavy sites.
+    buildCommand: "pip install -r requirements.txt && playwright install --with-deps chromium"
+    # 1 worker, several threads -- not more workers: the sentence-transformers
+    # embedding model (RAG) loads once per worker *process*, so extra workers
+    # multiply memory for no throughput gain on an I/O-bound app. Confirmed
+    # locally that 2 workers OOMs on a memory-constrained host; threads share
+    # one process's model instead.
+    startCommand: "gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --threads 4 --timeout 120"
+    healthCheckPath: /
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true
+      - key: FLASK_DEBUG
+        value: "false"
+      - key: DATABASE_PATH
+        value: data/app.db
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: OPENROUTER_MODEL
+        value: nvidia/nemotron-3-super-120b-a12b:free
+      # Optional -- only needed if the admin page's Data Source is
+      # switched to Supabase (see README.md#data-source-local-sqlite-or-supabase).
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_API_KEY
+        sync: false
+      - key: SUPABASE_DB_URL
+        sync: false
+    # The free plan's disk is ephemeral -- data/app.db and data/chroma
+    # reset on every deploy and restart. Uncomment this (requires a paid
+    # instance type; disks aren't available on the free plan) to persist
+    # local-mode data across deploys, or switch the admin page's Data
+    # Source to Supabase for durable storage without a disk at all.
+    # disk:
+    #   name: discovr-data
+    #   mountPath: /opt/render/project/src/data
+    #   sizeGB: 1

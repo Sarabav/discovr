@@ -1,0 +1,36 @@
+.settings-hint {
+  color: var(--muted);
+  font-size: 0.9rem;
+  margin-bottom: 10px;
+}
+
+.settings-textarea {
+  width: 100%;
+  min-height: 320px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  resize: vertical;
+}
+
+.settings-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.save-status {
+  font-size: 0.9rem;
+}
+
+.save-status.success {
+  color: var(--accent);
+}
+
+.save-status.error {
+  color: var(--bad);
+}

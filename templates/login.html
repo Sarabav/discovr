@@ -5,17 +5,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Discovr — Log In</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='auth.css') }}">
 </head>
-<body>
-  <header class="app-header">
-    <div class="container">
-      <h1>Discovr</h1>
-      <p class="tagline">Log in to view your AI-visibility dashboard.</p>
-    </div>
-  </header>
+<body class="auth-page">
+  <div class="auth-glow"></div>
 
-  <main class="container narrow">
-    <section class="card">
+  <main class="auth-shell">
+    <a class="auth-logo" href="{{ url_for('landing_page') }}">Discovr</a>
+
+    <section class="card auth-card">
       <h2>Log In</h2>
 
       {% with messages = get_flashed_messages() %}

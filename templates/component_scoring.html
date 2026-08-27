@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Discovr — Scoring Component</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='component_website.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='component_scoring.css') }}">
+</head>
+<body>
+  {% set active_page = 'components' %}
+  {% include "header.html" %}
+  {% include "admin_bar.html" %}
+
+  <main class="container page-main">
+    <div class="page-header">
+      <p class="page-back"><a href="{{ url_for('components_page') }}">&larr; Components</a></p>
+      <h1>Scoring</h1>
+      <p class="page-subtitle">
+        Scrapes a website, then runs all five category checks against it: NAP
+        consistency, structured data, content clarity, crawler access, and
+        mentions. Only the website connector exists so far, so NAP consistency
+        and mentions are skipped until Google Places and Brave Search are wired
+        up.
+      </p>
+    </div>
+
+    <section class="card">
+      <div class="field">
+        <label for="scoring-url">Website URL</label>
+        <input type="text" id="scoring-url" value="https://www.wafflehouse.com">
+      </div>
+      <div class="run-row">
+        <button id="run-button" type="button">Scrape &amp; Score</button>
+        <span id="run-status" class="save-status"></span>
+        <span id="elapsed-time" class="elapsed-time"></span>
+      </div>
+      <div id="error-banner" class="error-message hidden"></div>
+    </section>
+
+    <section id="results" class="hidden">
+      <section class="card">
+        <h2>Overall Score</h2>
+        <div class="overall-score-row">
+          <span id="overall-score-value" class="overall-score-value"></span>
+          <span id="overall-score-grade" class="overall-score-grade"></span>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Categories</h2>
+        <div id="result-categories" class="category-list"></div>
+      </section>
+
+      <section class="card">
+        <h2>Findings, Ranked by Impact</h2>
+        <div id="result-findings" class="finding-list"></div>
+      </section>
+
+      <details class="raw-json-details">
+        <summary>Raw JSON (for debugging)</summary>
+        <pre id="result-raw" class="code-block"></pre>
+      </details>
+    </section>
+  </main>
+
+  <script src="{{ url_for('static', filename='component_scoring.js') }}"></script>
+</body>
+</html>

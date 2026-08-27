@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Discovr — Admin</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='components.css') }}">
+</head>
+<body>
+  {% set active_page = 'admin' %}
+  {% include "header.html" %}
+  {% include "admin_bar.html" %}
+
+  <main class="container page-main">
+    <div class="page-header">
+      <h1>Admin</h1>
+      <p class="page-subtitle">Developer tools — not part of the normal user flow</p>
+    </div>
+
+    <section class="card">
+      <div class="components-grid">
+        <a class="component-card tool" href="{{ url_for('components_page') }}">
+          <h3>Components</h3>
+          <p>How the analysis agent is put together</p>
+          <p class="component-try">Open &rarr;</p>
+        </a>
+        <a class="component-card tool" href="{{ url_for('workflows_page') }}">
+          <h3>Workflows</h3>
+          <p>What the agent runs end to end</p>
+          <p class="component-try">Open &rarr;</p>
+        </a>
+        <a class="component-card tool" href="{{ url_for('chunks_page') }}">
+          <h3>Chunks</h3>
+          <p>Knowledge base chunks</p>
+          <p class="component-try">Open &rarr;</p>
+        </a>
+        <a class="component-card tool" href="{{ url_for('results_page') }}">
+          <h3>Results</h3>
+          <p>Chatbot response ratings</p>
+          <p class="component-try">Open &rarr;</p>
+        </a>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Data Source</h2>
+      <p class="settings-hint">Where the app reads and writes users, businesses, analyses, findings, and every other table.</p>
+
+      <div class="data-source-row">
+        <select id="data-source-select">
+          <option value="local" {{ "selected" if data_source == "local" }}>Local (SQLite)</option>
+          <option value="supabase" {{ "selected" if data_source == "supabase" }}>Supabase</option>
+        </select>
+        <span id="data-source-status" class="settings-hint"></span>
+      </div>
+
+      <div class="data-source-row">
+        <button type="button" id="clone-button" class="button-ghost">Clone Local Data to Supabase</button>
+      </div>
+      <div id="clone-summary" class="clone-summary hidden"></div>
+    </section>
+  </main>
+
+  <link rel="stylesheet" href="{{ url_for('static', filename='admin.css') }}">
+  <script src="{{ url_for('static', filename='admin.js') }}"></script>
+</body>
+</html>

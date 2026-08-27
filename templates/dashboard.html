@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Discovr</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='chat.css') }}">
+</head>
+<body class="chat-body">
+  {% set active_page = 'dashboard' %}
+  {% include "header.html" %}
+
+  <main class="chat-main">
+    <div class="chat-column">
+      <div id="chat-messages" class="chat-messages">
+        <div id="empty-state" class="empty-state">
+          <p id="empty-state-text">Discovr checks how visible your business is to AI assistants like ChatGPT and Perplexity, and tells you exactly what to fix.</p>
+          <button type="button" id="example-prompt" class="example-prompt">Run my AI-visibility audit</button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="chat-footer">
+    <div class="chat-column">
+      <form id="chat-form" class="composer">
+        <input type="text" id="chat-input" placeholder="Ask about your AI visibility..." autocomplete="off">
+        <button type="submit" id="send-button">Send</button>
+      </form>
+    </div>
+  </footer>
+
+  <script src="{{ url_for('static', filename='chat.js') }}"></script>
+</body>
+</html>
