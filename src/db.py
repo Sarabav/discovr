@@ -223,6 +223,11 @@ def set_password(email, password_hash):
         )
 
 
+def update_user_email(user_id, email):
+    with transaction() as connection:
+        connection.execute("UPDATE users SET email = ? WHERE id = ?", (email, user_id))
+
+
 def get_business(business_id):
     with transaction() as connection:
         return connection.execute(

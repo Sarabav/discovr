@@ -16,6 +16,7 @@ from src.agent.graph import BLOCKERS_MARKER, PROJECTION_MARKER, run_agent_loop
 from src.agents import load_knowledge_base, load_prompt, save_knowledge_base, save_prompt
 from src.auth import (
     admin_required,
+    is_valid_email,
     login as authenticate,
     login_required,
     paid_required,
@@ -28,7 +29,7 @@ from src.chatbot import (
     describe_progress,
     resolve_finding_ref,
 )
-from src.billing import confirm_checkout_session, create_checkout_session, refund_payment
+from src.billing import BillingError, confirm_checkout_session, create_checkout_session, refund_payment
 from src.checkers import summarize_schema
 from src.components.find_mentions import city_from_address, find_mentions
 from src.components.fix_generator import generate_verified_fix
@@ -48,9 +49,11 @@ from src.store import (
     get_findings,
     get_fixes_for_run,
     get_latest_analysis,
+    get_user_by_email,
     get_user_by_id,
     set_paid,
     update_business_website,
+    update_user_email,
 )
 from src.supabase_store import clone_local_to_supabase
 from src.rag import (
@@ -149,20 +152,57 @@ def start_checkout():
     user = get_user_by_id(session["user_id"])
     if user["paid"]:
         return redirect(url_for("dashboard_page"))
-    checkout_url = create_checkout_session(
-        user_id=user["id"],
-        user_email=user["email"],
-        success_url=url_for("checkout_success", _external=True) + "?session_id={CHECKOUT_SESSION_ID}",
-        cancel_url=url_for("dashboard_page", _external=True),
-    )
+
+    # Belt-and-braces: signup already rejects a malformed email, but an
+    # account could predate that check (or have been provisioned
+    # directly) -- catching it here means Stripe never sees a bad value
+    # in the first place, rather than us finding out from its error.
+    if not is_valid_email(user["email"]):
+        return redirect(url_for("update_email_page"))
+
+    try:
+        checkout_url = create_checkout_session(
+            user_id=user["id"],
+            user_email=user["email"],
+            success_url=url_for("checkout_success", _external=True) + "?session_id={CHECKOUT_SESSION_ID}",
+            cancel_url=url_for("dashboard_page", _external=True),
+        )
+    except BillingError as error:
+        flash(str(error))
+        return redirect(url_for("dashboard_page"))
     return redirect(checkout_url)
+
+
+@app.route("/account/email", methods=["GET", "POST"])
+@login_required
+def update_email_page():
+    user = get_user_by_id(session["user_id"])
+
+    if request.method == "POST":
+        new_email = request.form.get("email", "").strip().lower()
+        if not is_valid_email(new_email):
+            return render_template("update_email.html", current_email=user["email"], error="Enter a valid email address.")
+        existing = get_user_by_email(new_email)
+        if existing is not None and existing["id"] != user["id"]:
+            return render_template("update_email.html", current_email=user["email"], error="That email is already in use.")
+
+        update_user_email(user["id"], new_email)
+        flash("Email updated.")
+        return redirect(url_for("start_checkout"))
+
+    return render_template("update_email.html", current_email=user["email"])
 
 
 @app.route("/checkout/success")
 @login_required
 def checkout_success():
     session_id = request.args.get("session_id")
-    payment_intent_id = confirm_checkout_session(session_id, session["user_id"]) if session_id else None
+    try:
+        payment_intent_id = confirm_checkout_session(session_id, session["user_id"]) if session_id else None
+    except BillingError as error:
+        flash(str(error))
+        return redirect(url_for("dashboard_page"))
+
     if payment_intent_id:
         set_paid(session["user_id"], True, payment_intent_id)
         flash("Payment successful — welcome to Discovr!")
@@ -179,8 +219,8 @@ def _refund_user(user):
         return False, "This user has no payment to refund."
     try:
         refund_payment(user["stripe_payment_intent_id"])
-    except Exception as error:
-        return False, f"Refund failed: {error}"
+    except BillingError as error:
+        return False, str(error)
     set_paid(user["id"], False)
     return True, "Refund issued."
 

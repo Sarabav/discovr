@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Discovr — Update Email</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='auth.css') }}">
+</head>
+<body class="auth-page">
+  <div class="auth-glow"></div>
+
+  <main class="auth-shell">
+    <a class="auth-logo" href="{{ url_for('landing_page') }}">Discovr</a>
+
+    <section class="card auth-card">
+      <h2>Update Your Email</h2>
+      <p class="settings-hint">"{{ current_email }}" isn't a valid email address, so we can't start checkout. Update it to continue.</p>
+
+      {% if error %}
+        <div class="error-message">{{ error }}</div>
+      {% endif %}
+
+      <form method="post">
+        <div class="field">
+          <label for="email">New email</label>
+          <input type="email" id="email" name="email" required>
+        </div>
+        <button type="submit">Save and Continue</button>
+      </form>
+    </section>
+  </main>
+</body>
+</html>

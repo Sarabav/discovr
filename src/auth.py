@@ -4,6 +4,7 @@ Kept separate from routes (app.py) and from raw SQL (src/db.py) so each
 layer has one job.
 """
 
+import re
 from functools import wraps
 
 from flask import abort, redirect, session, url_for
@@ -13,11 +14,27 @@ from src.store import create_user, get_user_by_email, get_user_by_id
 
 MIN_PASSWORD_LENGTH = 8
 
+# The WHATWG HTML5 email input pattern -- not full RFC 5322, but a real
+# shape check (local@label.label, domain requires a dot) rather than
+# "contains @". Rejects things like "mum@123" that a bare `"@" in email`
+# check let through, which broke Stripe checkout downstream.
+EMAIL_RE = re.compile(
+    r"^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9]"
+    r"(?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?"
+    r"(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$"
+)
+
+
+def is_valid_email(email):
+    return bool(email) and bool(EMAIL_RE.match(email))
+
 
 def signup(email, password):
     """Create a new account for an email not seen before. Returns (user, error)."""
     if not email:
         return None, "Email is required."
+    if not is_valid_email(email):
+        return None, "Enter a valid email address."
     if not password or len(password) < MIN_PASSWORD_LENGTH:
         return None, f"Password must be at least {MIN_PASSWORD_LENGTH} characters."
 

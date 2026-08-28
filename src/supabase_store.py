@@ -167,6 +167,10 @@ def set_password(email, password_hash):
     _table("users").update({"password_hash": password_hash}).eq("email", email).execute()
 
 
+def update_user_email(user_id, email):
+    _table("users").update({"email": email}).eq("id", user_id).execute()
+
+
 def set_paid(user_id, paid, payment_intent_id=None):
     update = {"paid": int(bool(paid))}
     if payment_intent_id is not None:

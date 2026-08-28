@@ -39,7 +39,7 @@
 - 👍 **`data/results.json`** - rated chatbot responses (generated, gitignored)
 - ⚙️ **`src/`** - backend logic
 - 🔀 **`src/store.py`** - persistence dispatcher every route/module imports instead of `src.db` directly; forwards each call to `src.db` (local SQLite) or `src.supabase_store` (Supabase) based on `src.data_source`, so the admin page's Data Source dropdown swaps backends without a restart
-- 💳 **`src/billing.py`** - Stripe: `create_checkout_session`/`confirm_checkout_session`/`refund_payment`; the only module that touches the `stripe` SDK, `STRIPE_SECRET_KEY` set lazily inside `_client()`
+- 💳 **`src/billing.py`** - Stripe: `create_checkout_session`/`confirm_checkout_session`/`refund_payment`; the only module that touches the `stripe` SDK, `STRIPE_SECRET_KEY` set lazily inside `_client()`; every call wraps `stripe.error.StripeError` and re-raises `BillingError` (plain message, real error logged) so `app.py` never sees a raw Stripe exception; `src.auth.is_valid_email` (real format check) is checked before an email ever reaches Stripe, both at signup and again at `/checkout`
 - 🗄️ **`src/db.py`** - the local SQLite backend: schema (`init_db`), connections, and every table's CRUD
 - ☁️ **`src/supabase_store.py`** - the Supabase backend, same function signatures as `src/db.py`; `ensure_schema()` creates tables via a direct Postgres connection (`SUPABASE_DB_URL`, since the REST API can't run DDL) and disables RLS on each; `clone_local_to_supabase()` runs that then does an idempotent row copy from local SQLite, used by the admin page's clone button
 - 🔑 **`src/supabase_client.py`** - cached Supabase client (service-role key, bypasses RLS) for row reads/writes; schema creation goes through `psycopg2` + `SUPABASE_DB_URL` instead, see above

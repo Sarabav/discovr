@@ -150,6 +150,7 @@ discovr/
 │   ├── landing.html       # Public marketing page at /
 │   ├── login.html
 │   ├── signup.html        # Email + business website
+│   ├── update_email.html  # Prompt to fix an invalid stored email, at /account/email (reached from /checkout)
 │   ├── dashboard.html     # The chat (requires login) — the whole app, at /dashboard
 │   ├── settings.html      # Edit knowledge base / prompt (requires login)
 │   ├── admin.html         # Admin hub: links to Components/Workflows/Chunks/Results, Data Source dropdown, clone button, Users/refund table (admin only)
@@ -1073,9 +1074,12 @@ Discovr identifies accounts by **email + password**:
 - **Sign up** (`/signup`) creates a `users` row for an email not seen
   before, hashing the password with `werkzeug.security.generate_password_hash`
   (PBKDF2) before it's ever persisted — `password_hash` is the only
-  form of the password that reaches the database. A password under 8
-  characters, or an email that's already registered, shows an error
-  instead of creating an account.
+  form of the password that reaches the database. The email is checked
+  against `src.auth.EMAIL_RE` (the WHATWG HTML5 email pattern — a real
+  shape check, not just "contains `@`") before anything else; a
+  malformed address, a password under 8 characters, or an email that's
+  already registered all show a form error instead of creating an
+  account.
 - **Log in** (`/login`) looks up the `users` row for the submitted
   email and verifies the password against its hash with
   `check_password_hash`. A wrong email and a wrong password return the
@@ -1115,17 +1119,31 @@ SDK directly.
   source is public and a page-only gate would just be a UI suggestion
   an API client could skip straight past (see [Admin
   Area](#admin-area)'s "hidden-but-reachable isn't access control").
-- **Checkout**: `GET /checkout` creates a Stripe Checkout Session
-  (`src.billing.create_checkout_session`, mode `payment`, one $5 line
-  item) with `client_reference_id` set to the user's own id, and
-  redirects to its hosted URL. `GET /checkout/success` is the
-  `success_url` Stripe redirects back to; it retrieves the session from
-  Stripe by id and checks `client_reference_id` matches the logged-in
-  user and `payment_status == "paid"` (`src.billing.confirm_checkout_session`)
-  — never trusts the query string alone — before calling
-  `src.store.set_paid(user_id, True, payment_intent_id)`. `cancel_url`
-  points back at `/dashboard`, which (still unpaid) immediately starts
-  a new Checkout Session again.
+- **Checkout**: `GET /checkout` first checks the account's own stored
+  email is actually valid (`src.auth.is_valid_email`) — an account can
+  predate the signup format check, or be provisioned directly — and if
+  not, redirects to `/account/email` (a small form) instead of ever
+  sending it to Stripe; `customer_email` is required for Checkout and
+  Stripe rejects a malformed one outright. Only once that passes does
+  it create a Checkout Session (`src.billing.create_checkout_session`,
+  mode `payment`, one $5 line item) with `client_reference_id` set to
+  the user's own id, and redirect to its hosted URL. `GET
+  /checkout/success` is the `success_url` Stripe redirects back to; it
+  retrieves the session from Stripe by id and checks
+  `client_reference_id` matches the logged-in user and `payment_status
+  == "paid"` (`src.billing.confirm_checkout_session`) — never trusts
+  the query string alone — before calling `src.store.set_paid(user_id,
+  True, payment_intent_id)`. `cancel_url` points back at `/dashboard`,
+  which (still unpaid) immediately starts a new Checkout Session again.
+- **Stripe failures never reach the browser as a 500**: every Stripe
+  SDK call in `src/billing.py` is wrapped in `try`/`except
+  stripe.error.StripeError`, which logs the real error to stderr and
+  raises `src.billing.BillingError` with a plain-language message
+  instead (e.g. "We couldn't start checkout — please check your email
+  address on your account."). `app.py` catches only `BillingError` —
+  it never imports the `stripe` SDK itself — flashes that message, and
+  redirects back to the dashboard (rendered via the shared
+  `flash-message` block, same as login/signup).
 - **Self-serve refund**: the dashboard's **Settings** button (top of
   the chat page, `static/billing.js`) opens a small panel showing
   payment status and a **Refund my payment** button, `POST

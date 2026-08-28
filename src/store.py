@@ -42,6 +42,10 @@ def set_password(email, password_hash):
     return _backend().set_password(email, password_hash)
 
 
+def update_user_email(user_id, email):
+    return _backend().update_user_email(user_id, email)
+
+
 def set_paid(user_id, paid, payment_intent_id=None):
     return _backend().set_paid(user_id, paid, payment_intent_id)
 

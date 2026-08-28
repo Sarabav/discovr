@@ -24,6 +24,11 @@
 
   <main class="chat-main">
     <div class="chat-column">
+      {% with messages = get_flashed_messages() %}
+        {% if messages %}
+          <div class="flash-message">{{ messages[0] }}</div>
+        {% endif %}
+      {% endwith %}
       <div id="chat-messages" class="chat-messages">
         <div id="empty-state" class="empty-state">
           <p id="empty-state-text">Discovr checks how visible your business is to AI assistants like ChatGPT and Perplexity, and tells you exactly what to fix.</p>
