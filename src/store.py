@@ -26,12 +26,24 @@ def get_user_by_email(email):
     return _backend().get_user_by_email(email)
 
 
+def get_user_by_id(user_id):
+    return _backend().get_user_by_id(user_id)
+
+
+def get_all_users():
+    return _backend().get_all_users()
+
+
 def set_admin(email, is_admin=True):
     return _backend().set_admin(email, is_admin)
 
 
 def set_password(email, password_hash):
     return _backend().set_password(email, password_hash)
+
+
+def set_paid(user_id, paid, payment_intent_id=None):
+    return _backend().set_paid(user_id, paid, payment_intent_id)
 
 
 def get_business(business_id):

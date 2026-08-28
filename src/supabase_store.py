@@ -34,6 +34,8 @@ CREATE TABLE IF NOT EXISTS users (
   email TEXT UNIQUE NOT NULL,
   password_hash TEXT,
   is_admin INTEGER NOT NULL DEFAULT 0,
+  paid INTEGER NOT NULL DEFAULT 0,
+  stripe_payment_intent_id TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
@@ -148,12 +150,28 @@ def get_user_by_email(email):
     return _one(_table("users").select("*").eq("email", email).execute())
 
 
+def get_user_by_id(user_id):
+    return _one(_table("users").select("*").eq("id", user_id).execute())
+
+
+def get_all_users():
+    result = _table("users").select("*").order("created_at").execute()
+    return result.data
+
+
 def set_admin(email, is_admin=True):
     _table("users").update({"is_admin": int(bool(is_admin))}).eq("email", email).execute()
 
 
 def set_password(email, password_hash):
     _table("users").update({"password_hash": password_hash}).eq("email", email).execute()
+
+
+def set_paid(user_id, paid, payment_intent_id=None):
+    update = {"paid": int(bool(paid))}
+    if payment_intent_id is not None:
+        update["stripe_payment_intent_id"] = payment_intent_id
+    _table("users").update(update).eq("id", user_id).execute()
 
 
 # ---------- businesses ----------
@@ -366,6 +384,8 @@ def ensure_schema():
             # (e.g. password_hash) -- add it here too, the same gap
             # src.db.init_db() handles for SQLite.
             cursor.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash TEXT")
+            cursor.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS paid INTEGER NOT NULL DEFAULT 0")
+            cursor.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS stripe_payment_intent_id TEXT")
             for table in TABLES:
                 cursor.execute(f"ALTER TABLE {table} DISABLE ROW LEVEL SECURITY")
         connection.commit()

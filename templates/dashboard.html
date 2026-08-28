@@ -11,6 +11,17 @@
   {% set active_page = 'dashboard' %}
   {% include "header.html" %}
 
+  <div class="chat-toolbar">
+    <div class="chat-column chat-toolbar-inner">
+      <button type="button" id="billing-settings-toggle" class="button-ghost">Settings</button>
+      <div id="billing-settings-panel" class="billing-settings-panel hidden">
+        <p class="billing-status">Status: <strong>Paid</strong> — one-time $5 access</p>
+        <button type="button" id="refund-button" class="button-ghost">Refund my payment</button>
+        <p id="refund-message" class="billing-message hidden"></p>
+      </div>
+    </div>
+  </div>
+
   <main class="chat-main">
     <div class="chat-column">
       <div id="chat-messages" class="chat-messages">
@@ -32,5 +43,6 @@
   </footer>
 
   <script src="{{ url_for('static', filename='chat.js') }}"></script>
+  <script src="{{ url_for('static', filename='billing.js') }}"></script>
 </body>
 </html>

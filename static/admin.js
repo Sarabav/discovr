@@ -67,3 +67,27 @@ function renderCloneSummary(data, ok) {
     cloneSummary.appendChild(note);
   }
 }
+
+document.querySelectorAll(".refund-user-button").forEach((button) => {
+  button.addEventListener("click", async () => {
+    const row = button.closest("tr");
+    const userId = row.dataset.userId;
+    button.disabled = true;
+    button.textContent = "Refunding…";
+
+    const response = await fetch(`/admin/users/${userId}/refund`, { method: "POST" });
+    const data = await response.json().catch(() => ({}));
+
+    if (data.ok) {
+      const status = row.querySelector(".users-status");
+      status.textContent = "Unpaid";
+      status.classList.remove("paid");
+      status.classList.add("unpaid");
+      button.remove();
+    } else {
+      alert(data.message || "Refund failed.");
+      button.disabled = false;
+      button.textContent = "Refund";
+    }
+  });
+});

@@ -14,7 +14,13 @@ from flask import Flask, flash, jsonify, redirect, render_template, request, ses
 
 from src.agent.graph import BLOCKERS_MARKER, PROJECTION_MARKER, run_agent_loop
 from src.agents import load_knowledge_base, load_prompt, save_knowledge_base, save_prompt
-from src.auth import admin_required, login as authenticate, login_required, signup as signup_user
+from src.auth import (
+    admin_required,
+    login as authenticate,
+    login_required,
+    paid_required,
+    signup as signup_user,
+)
 from src.chatbot import (
     ChatIntentError,
     answer_question,
@@ -22,6 +28,7 @@ from src.chatbot import (
     describe_progress,
     resolve_finding_ref,
 )
+from src.billing import confirm_checkout_session, create_checkout_session, refund_payment
 from src.checkers import summarize_schema
 from src.components.find_mentions import city_from_address, find_mentions
 from src.components.fix_generator import generate_verified_fix
@@ -32,6 +39,7 @@ from src.store import (
     create_business,
     create_snapshot,
     get_agent_runs,
+    get_all_users,
     get_analyses_for_business,
     get_analysis,
     get_business,
@@ -40,6 +48,8 @@ from src.store import (
     get_findings,
     get_fixes_for_run,
     get_latest_analysis,
+    get_user_by_id,
+    set_paid,
     update_business_website,
 )
 from src.supabase_store import clone_local_to_supabase
@@ -128,9 +138,69 @@ def logout():
 
 
 @app.route("/dashboard")
-@login_required
+@paid_required
 def dashboard_page():
     return render_template("dashboard.html", user_name=session["user_name"])
+
+
+@app.route("/checkout")
+@login_required
+def start_checkout():
+    user = get_user_by_id(session["user_id"])
+    if user["paid"]:
+        return redirect(url_for("dashboard_page"))
+    checkout_url = create_checkout_session(
+        user_id=user["id"],
+        user_email=user["email"],
+        success_url=url_for("checkout_success", _external=True) + "?session_id={CHECKOUT_SESSION_ID}",
+        cancel_url=url_for("dashboard_page", _external=True),
+    )
+    return redirect(checkout_url)
+
+
+@app.route("/checkout/success")
+@login_required
+def checkout_success():
+    session_id = request.args.get("session_id")
+    payment_intent_id = confirm_checkout_session(session_id, session["user_id"]) if session_id else None
+    if payment_intent_id:
+        set_paid(session["user_id"], True, payment_intent_id)
+        flash("Payment successful — welcome to Discovr!")
+    else:
+        flash("We couldn't confirm that payment. Please try again.")
+    return redirect(url_for("dashboard_page"))
+
+
+def _refund_user(user):
+    """Shared by the self-serve and admin refund routes: refund
+    user's payment through Stripe, then mark them unpaid so the
+    paywall re-applies. Returns (ok, message)."""
+    if not user["paid"] or not user["stripe_payment_intent_id"]:
+        return False, "This user has no payment to refund."
+    try:
+        refund_payment(user["stripe_payment_intent_id"])
+    except Exception as error:
+        return False, f"Refund failed: {error}"
+    set_paid(user["id"], False)
+    return True, "Refund issued."
+
+
+@app.route("/billing/refund", methods=["POST"])
+@login_required
+def refund_own_payment():
+    user = get_user_by_id(session["user_id"])
+    ok, message = _refund_user(user)
+    return jsonify({"ok": ok, "message": message}), (200 if ok else 400)
+
+
+@app.route("/admin/users/<user_id>/refund", methods=["POST"])
+@admin_required
+def refund_user_payment(user_id):
+    user = get_user_by_id(user_id)
+    if user is None:
+        return jsonify({"ok": False, "message": "User not found."}), 404
+    ok, message = _refund_user(user)
+    return jsonify({"ok": ok, "message": message}), (200 if ok else 400)
 
 
 def _start_audit(business_id):
@@ -162,7 +232,7 @@ def _run_agent_loop_safely(business_id, run_id):
 
 
 @app.route("/chat", methods=["POST"])
-@login_required
+@paid_required
 def chat():
     data = request.get_json(silent=True) or {}
     question = data.get("question", "").strip()
@@ -443,7 +513,12 @@ def rate():
 @app.route("/admin")
 @admin_required
 def admin_page():
-    return render_template("admin.html", user_name=session["user_name"], data_source=get_data_source())
+    return render_template(
+        "admin.html",
+        user_name=session["user_name"],
+        data_source=get_data_source(),
+        users=get_all_users(),
+    )
 
 
 @app.route("/admin/data-source", methods=["POST"])

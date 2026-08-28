@@ -38,6 +38,8 @@ services:
         value: nvidia/nemotron-3-super-120b-a12b:free
       - key: OPENROUTER_EMBEDDING_MODEL
         value: openai/text-embedding-3-small
+      - key: STRIPE_SECRET_KEY
+        sync: false
       # Optional -- only needed if the admin page's Data Source is
       # switched to Supabase (see README.md#data-source-local-sqlite-or-supabase).
       - key: SUPABASE_URL

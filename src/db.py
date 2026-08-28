@@ -26,6 +26,8 @@ CREATE TABLE IF NOT EXISTS users (
   email TEXT UNIQUE NOT NULL,
   password_hash TEXT NOT NULL,
   is_admin INTEGER NOT NULL DEFAULT 0,
+  paid INTEGER NOT NULL DEFAULT 0,
+  stripe_payment_intent_id TEXT,
   created_at TEXT DEFAULT (datetime('now'))
 );
 
@@ -151,6 +153,10 @@ def init_db():
             # src.auth treats a NULL hash as "no password set, can't log
             # in" (fail clearly) rather than a bypass.
             connection.execute("ALTER TABLE users ADD COLUMN password_hash TEXT")
+        if "paid" not in columns:
+            connection.execute("ALTER TABLE users ADD COLUMN paid INTEGER NOT NULL DEFAULT 0")
+        if "stripe_payment_intent_id" not in columns:
+            connection.execute("ALTER TABLE users ADD COLUMN stripe_payment_intent_id TEXT")
 
 
 def new_id():
@@ -173,11 +179,41 @@ def get_user_by_email(email):
         ).fetchone()
 
 
+def get_user_by_id(user_id):
+    with transaction() as connection:
+        return connection.execute(
+            "SELECT * FROM users WHERE id = ?", (user_id,)
+        ).fetchone()
+
+
+def get_all_users():
+    with transaction() as connection:
+        return connection.execute(
+            "SELECT * FROM users ORDER BY created_at ASC"
+        ).fetchall()
+
+
 def set_admin(email, is_admin=True):
     with transaction() as connection:
         connection.execute(
             "UPDATE users SET is_admin = ? WHERE email = ?", (int(bool(is_admin)), email)
         )
+
+
+def set_paid(user_id, paid, payment_intent_id=None):
+    """payment_intent_id is only overwritten when a value is passed (a
+    fresh successful checkout); marking unpaid on refund keeps the old
+    id around as a record of what was refunded."""
+    with transaction() as connection:
+        if payment_intent_id is not None:
+            connection.execute(
+                "UPDATE users SET paid = ?, stripe_payment_intent_id = ? WHERE id = ?",
+                (int(bool(paid)), payment_intent_id, user_id),
+            )
+        else:
+            connection.execute(
+                "UPDATE users SET paid = ? WHERE id = ?", (int(bool(paid)), user_id)
+            )
 
 
 def set_password(email, password_hash):

@@ -28,3 +28,36 @@
   font-size: 0.85rem;
   margin: 10px 0 6px;
 }
+
+.users-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+  font-size: 0.9rem;
+}
+
+.users-table th {
+  text-align: left;
+  color: var(--muted);
+  font-weight: 500;
+  font-size: 0.8rem;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--line);
+}
+
+.users-table td {
+  padding: 8px;
+  border-bottom: 1px solid var(--line);
+}
+
+.users-status {
+  font-weight: 600;
+}
+
+.users-status.paid {
+  color: var(--good);
+}
+
+.users-status.unpaid {
+  color: var(--muted);
+}

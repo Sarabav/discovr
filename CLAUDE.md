@@ -24,11 +24,12 @@
 - 🔎 ChromaDB (RAG storage/retrieval; lazy-imported inside `src/rag.py`'s `_get_client()`)
 - 🌐 requests + BeautifulSoup (Business Website component); Playwright is an optional headless-render fallback for JS-heavy sites, not installed on Render by default (too heavy for the 512MB free tier) — degrades to the requests path automatically when not importable
 - 🚀 gunicorn on Render (`render.yaml`) — 1 worker/4 threads (see the file's comments)
+- 💳 Stripe (`src/billing.py`) — one-time $5 chatbot paywall via Checkout Sessions + refunds
 
 ## 🗂️ Code Structure
 - 🚪 **`app.py`** - Flask App entry point
 - ☁️ **`render.yaml`** - Render Blueprint: build/start commands, env vars, for `gunicorn app:app` deploys
-- 🖼️ **`templates/`** - front end. `landing.html` is the public page at `/`; `dashboard.html` (chat-first, at `/dashboard`) is the whole logged-in app; `header.html` is a shared partial included by every logged-in page (normal users see Dashboard/Settings only, plus an Admin link in the avatar dropdown if `is_admin`); `admin.html` (`/admin`, admin-only) hubs the developer views — Components, Workflows, Chunks, Results — each still its own page/route, just gated and reachable only from here, plus the Data Source dropdown (local/Supabase) and "Clone Local Data to Supabase" button; `admin_bar.html` is the muted "Admin — internal tools" partial included on all admin pages; `workflows.html` (`/workflows`) lists the app's end-to-end workflows as run-able cards
+- 🖼️ **`templates/`** - front end. `landing.html` is the public page at `/`; `dashboard.html` (chat-first, at `/dashboard`) is the whole logged-in app, gated by `paid_required` — includes a Settings button/panel showing payment status and a "Refund my payment" button; `header.html` is a shared partial included by every logged-in page (normal users see Dashboard/Settings only, plus an Admin link in the avatar dropdown if `is_admin`); `admin.html` (`/admin`, admin-only) hubs the developer views — Components, Workflows, Chunks, Results — each still its own page/route, just gated and reachable only from here, plus the Data Source dropdown (local/Supabase), "Clone Local Data to Supabase" button, and a Users table with a Refund button per paid user; `admin_bar.html` is the muted "Admin — internal tools" partial included on all admin pages; `workflows.html` (`/workflows`) lists the app's end-to-end workflows as run-able cards
 - 🎨 **`static/style.css`** - shared design tokens (palette, type, radii, shadows; light/dark), consumed by every page's CSS
 - 🗄️ **`data/`** - all app data
 - 💾 **`data/app.db`** - local SQLite database (generated, gitignored) - the default data source
@@ -38,6 +39,7 @@
 - 👍 **`data/results.json`** - rated chatbot responses (generated, gitignored)
 - ⚙️ **`src/`** - backend logic
 - 🔀 **`src/store.py`** - persistence dispatcher every route/module imports instead of `src.db` directly; forwards each call to `src.db` (local SQLite) or `src.supabase_store` (Supabase) based on `src.data_source`, so the admin page's Data Source dropdown swaps backends without a restart
+- 💳 **`src/billing.py`** - Stripe: `create_checkout_session`/`confirm_checkout_session`/`refund_payment`; the only module that touches the `stripe` SDK, `STRIPE_SECRET_KEY` set lazily inside `_client()`
 - 🗄️ **`src/db.py`** - the local SQLite backend: schema (`init_db`), connections, and every table's CRUD
 - ☁️ **`src/supabase_store.py`** - the Supabase backend, same function signatures as `src/db.py`; `ensure_schema()` creates tables via a direct Postgres connection (`SUPABASE_DB_URL`, since the REST API can't run DDL) and disables RLS on each; `clone_local_to_supabase()` runs that then does an idempotent row copy from local SQLite, used by the admin page's clone button
 - 🔑 **`src/supabase_client.py`** - cached Supabase client (service-role key, bypasses RLS) for row reads/writes; schema creation goes through `psycopg2` + `SUPABASE_DB_URL` instead, see above

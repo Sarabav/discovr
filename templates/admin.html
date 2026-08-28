@@ -60,6 +60,38 @@
       </div>
       <div id="clone-summary" class="clone-summary hidden"></div>
     </section>
+
+    <section class="card">
+      <h2>Users</h2>
+      <p class="settings-hint">$5 one-time chatbot access. Refund reverses the charge in Stripe and re-applies the paywall for that user.</p>
+
+      <table class="users-table">
+        <thead>
+          <tr>
+            <th>Email</th>
+            <th>Status</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for user in users %}
+          <tr data-user-id="{{ user.id }}">
+            <td>{{ user.email }}</td>
+            <td>
+              <span class="users-status {{ 'paid' if user.paid else 'unpaid' }}">
+                {{ "Paid" if user.paid else "Unpaid" }}
+              </span>
+            </td>
+            <td>
+              {% if user.paid %}
+              <button type="button" class="button-ghost refund-user-button">Refund</button>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </section>
   </main>
 
   <link rel="stylesheet" href="{{ url_for('static', filename='admin.css') }}">

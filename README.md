@@ -31,10 +31,12 @@ _(placeholder — add a screenshot of the chat here)_
 
 ## Features Implemented So Far
 
-- **Authentication** — sign up and log in with just an email address (no
-  password) via Flask-session-backed login state. Chat, settings, chunks,
-  results, and components all require login (see
-  [Authentication](#authentication)).
+- **Authentication** — email + password sign up and log in (hashed with
+  PBKDF2, never stored or logged in plain text), Flask-session-backed
+  login state. Chat, settings, chunks, results, and components all
+  require login (see [Authentication](#authentication)).
+- **Billing** — a one-time $5 Stripe Checkout paywall in front of the
+  chatbot, plus self-serve and admin refund (see [Billing](#billing)).
 - **Chat-first UI** — no separate dashboard: the whole app is one
   scrolling message thread with a composer pinned to the bottom.
   Asking to run an audit kicks off the real pipeline in the background
@@ -103,6 +105,7 @@ _(placeholder — add a screenshot of the chat here)_
 - **LangGraph** — the agent loop's state machine (`src/agent/graph.py`)
 - **ChromaDB** — stores chunk embeddings and serves similarity search
 - **requests** / **beautifulsoup4** — HTTP fetching and HTML parsing for the Business Website component; **Playwright** is an optional headless-browser fallback for JS-heavy sites, not installed by default on Render (see [Deploying to Render](#deploying-to-render))
+- **Stripe** (`stripe` Python SDK, `src/billing.py`) — Checkout Sessions and refunds for the chatbot's $5 paywall (see [Billing](#billing))
 - **pytest** — unit tests for the deterministic scoring checks
 - **Vanilla HTML/CSS/JS** — no frontend framework or build step
 
@@ -136,7 +139,8 @@ discovr/
 │   │   └── graph.py       # run_agent_loop(): LangGraph SUGGEST -> PLAN -> EXECUTE -> MONITOR loop
 │   ├── prompts/
 │   │   └── website_chatbot.txt  # System prompt for src.chatbot.answer_question
-│   ├── auth.py            # Email-only signup/login validation, login_required, admin_required
+│   ├── auth.py            # Email+password signup/login, login_required, admin_required, paid_required
+│   ├── billing.py         # Stripe: create_checkout_session, confirm_checkout_session, refund_payment
 │   ├── db.py              # SQLite schema and persistence (users, businesses, analyses, findings, fixes, agent_runs, ...)
 │   ├── store.py           # Persistence dispatcher: src.db or src.supabase_store, based on src.data_source
 │   ├── data_source.py     # Tracks the admin page's local/supabase selection (data/data_source.txt)
@@ -148,7 +152,7 @@ discovr/
 │   ├── signup.html        # Email + business website
 │   ├── dashboard.html     # The chat (requires login) — the whole app, at /dashboard
 │   ├── settings.html      # Edit knowledge base / prompt (requires login)
-│   ├── admin.html         # Admin hub: links to Components/Workflows/Chunks/Results, Data Source dropdown, clone button (admin only)
+│   ├── admin.html         # Admin hub: links to Components/Workflows/Chunks/Results, Data Source dropdown, clone button, Users/refund table (admin only)
 │   ├── admin_bar.html     # Muted "Admin — internal tools" bar, included by every admin page
 │   ├── chunks.html        # Inspect and re-run chunking (admin only)
 │   ├── results.html       # Rating stats and rated responses (admin only)
@@ -166,8 +170,9 @@ discovr/
 │   ├── admin_bar.css      # Muted admin-area header bar + sub-nav
 │   ├── admin.css          # Data Source dropdown / clone summary styling
 │   ├── admin.js           # Data Source dropdown + "Clone Local Data to Supabase" button
-│   ├── chat.css           # Chat layout: message list, bubbles, composer; step-trail classes reused by workflows.js
+│   ├── chat.css           # Chat layout: message list, bubbles, composer; step-trail classes reused by workflows.js; also the Settings/billing panel
 │   ├── chat.js
+│   ├── billing.js         # Dashboard Settings panel: payment status + "Refund my payment"
 │   ├── signup.js          # Saves business website to localStorage on submit
 │   ├── component_website.css
 │   ├── component_website.js
@@ -341,6 +346,7 @@ See `.env.example` for the full list with descriptions. Summary:
 | `SUPABASE_URL` | Supabase project URL | _optional — only used in Supabase mode, see [Data Source](#data-source-local-sqlite-or-supabase)_ |
 | `SUPABASE_API_KEY` | Supabase **service-role** key (not the anon key — the app needs to bypass RLS) | _optional — only used in Supabase mode_ |
 | `SUPABASE_DB_URL` | Direct Postgres connection string (session pooler) | _optional — only used by the "Clone Local Data to Supabase" button, to create tables_ |
+| `STRIPE_SECRET_KEY` | Stripe secret key, used by `src/billing.py` for the chatbot paywall | _none — must be set_ |
 
 `.env` is gitignored and never committed; `.env.example` documents the
 required variables with placeholder values only.
@@ -1092,6 +1098,52 @@ still no password-reset flow or email verification; consider those
 (plus rate-limiting `/login`) before this holds real user data at
 scale.
 
+## Billing
+
+A one-time $5 paywall sits in front of the chatbot, via Stripe
+Checkout. `src/billing.py` is the only module that talks to Stripe
+(`stripe.api_key` is set lazily, inside `_client()`, from
+`STRIPE_SECRET_KEY`); `app.py` and `src/auth.py` never call the Stripe
+SDK directly.
+
+- **The gate**: `src.auth.paid_required` (`app.py`'s `/dashboard` and
+  `/chat` routes) looks up `users.paid` fresh from the database on
+  every request — never cached in the session, unlike `is_admin` —
+  since a refund must re-apply the paywall on this user's very next
+  request, not next login. An unpaid logged-in user is redirected to
+  `/checkout`; both routes are gated, not just the page, since the
+  source is public and a page-only gate would just be a UI suggestion
+  an API client could skip straight past (see [Admin
+  Area](#admin-area)'s "hidden-but-reachable isn't access control").
+- **Checkout**: `GET /checkout` creates a Stripe Checkout Session
+  (`src.billing.create_checkout_session`, mode `payment`, one $5 line
+  item) with `client_reference_id` set to the user's own id, and
+  redirects to its hosted URL. `GET /checkout/success` is the
+  `success_url` Stripe redirects back to; it retrieves the session from
+  Stripe by id and checks `client_reference_id` matches the logged-in
+  user and `payment_status == "paid"` (`src.billing.confirm_checkout_session`)
+  — never trusts the query string alone — before calling
+  `src.store.set_paid(user_id, True, payment_intent_id)`. `cancel_url`
+  points back at `/dashboard`, which (still unpaid) immediately starts
+  a new Checkout Session again.
+- **Self-serve refund**: the dashboard's **Settings** button (top of
+  the chat page, `static/billing.js`) opens a small panel showing
+  payment status and a **Refund my payment** button, `POST
+  /billing/refund`. It refunds the caller's own
+  `stripe_payment_intent_id` (`src.billing.refund_payment` —
+  `stripe.Refund.create`), calls `set_paid(user_id, False)` (the intent
+  id is kept, not cleared, as a record of what was refunded), and shows
+  a confirmation message before reloading `/dashboard` — which, now
+  unpaid, sends the user straight back through Checkout.
+- **Admin refund**: `/admin`'s Users table lists every account with its
+  paid status and a **Refund** button next to each paid one, `POST
+  /admin/users/<user_id>/refund` (`admin_required`) — same refund logic,
+  targeting an arbitrary user rather than the caller.
+- Both refund routes share one helper (`app._refund_user`) so the logic
+  (check there's a payment to refund, call Stripe, catch and surface a
+  real error message on failure, flip `paid` back to 0 only once Stripe
+  confirms) isn't duplicated between the self-serve and admin paths.
+
 ## Database
 
 Discovr persists data in SQLite (path configurable via `DATABASE_PATH`),
@@ -1110,7 +1162,10 @@ Pipeline](#full-audit-pipeline).
 - **`users`** — `id` (UUID text), `email` (unique), `password_hash`
   (PBKDF2 via `werkzeug.security`, never the plain password — see
   [Authentication](#authentication)), `is_admin` (0/1, default 0 —
-  gates the [admin area](#admin-area)), `created_at`.
+  gates the [admin area](#admin-area)), `paid` (0/1, default 0 — gates
+  the chatbot, see [Billing](#billing)), `stripe_payment_intent_id`
+  (nullable — set on a successful checkout, kept as a record after a
+  refund rather than cleared), `created_at`.
 - **`businesses`** — a business belonging to a user: `name`,
   `website_url`.
 - **`business_snapshots`** — the raw material an analysis is based on
@@ -1227,6 +1282,15 @@ Planned directions for evolving this proof of concept:
   thing that ever posted to `POST /rate`. Either wire ratings into the
   main chat's follow-up responses, or remove `src/ratings.py`/`/results`
   if they're not worth keeping around unused.
+- **Billing has no webhook** — see [Billing](#billing). `paid` is only
+  ever set from `/checkout/success`, which relies on Stripe actually
+  redirecting the user's browser back after payment. If they close the
+  tab or lose connection right after paying, Stripe has their $5 but
+  `users.paid` never flips — they'd need a manual admin nudge (or to
+  pay again and get refunded once found). A `stripe.checkout.session.completed`
+  webhook would close that gap; skipped for now to keep this minimal
+  (it needs a signing secret and, for local testing, a tunnel like
+  the Stripe CLI's `stripe listen`).
 - **Supabase RLS is disabled, not policy-scoped** — see [Data
   Source](#data-source-local-sqlite-or-supabase). Fine while the
   service-role key is the only caller; needs real per-table RLS
