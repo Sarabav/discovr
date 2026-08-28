@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Discovr — Something Went Wrong</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='auth.css') }}">
+</head>
+<body class="auth-page">
+  <div class="auth-glow"></div>
+
+  <main class="auth-shell">
+    <a class="auth-logo" href="{{ url_for('landing_page') }}">Discovr</a>
+
+    <section class="card auth-card">
+      <h2>Something Went Wrong</h2>
+      <p class="settings-hint">{{ message or "An unexpected error occurred on our end. It's been logged — please try again in a moment." }}</p>
+      <p class="auth-switch"><a href="{{ url_for('landing_page') }}">Back to Discovr</a></p>
+    </section>
+  </main>
+</body>
+</html>

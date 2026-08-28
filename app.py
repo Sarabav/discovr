@@ -5,12 +5,14 @@ import os
 import sys
 import threading
 import time
+import traceback
 
 from dotenv import load_dotenv
 
 load_dotenv()
 
 from flask import Flask, flash, jsonify, redirect, render_template, request, session, url_for
+from werkzeug.exceptions import HTTPException
 
 from src.agent.graph import BLOCKERS_MARKER, PROJECTION_MARKER, run_agent_loop
 from src.agents import load_knowledge_base, load_prompt, save_knowledge_base, save_prompt
@@ -55,7 +57,7 @@ from src.store import (
     update_business_website,
     update_user_email,
 )
-from src.supabase_store import clone_local_to_supabase
+from src.supabase_store import clone_local_to_supabase, ensure_schema
 from src.rag import (
     DEFAULT_CHUNK_SIZE,
     get_indexed_chunks,
@@ -85,6 +87,32 @@ app.config.update(
     SESSION_COOKIE_SECURE=os.environ.get("FLASK_DEBUG", "true").lower() != "true",
 )
 init_db()
+
+# If the (locally-persisted, gitignored) Data Source setting says
+# Supabase, make sure those tables actually exist before serving --
+# otherwise every query after login would fail. Falls back to local
+# SQLite (always ready, via init_db() above) and logs why, rather than
+# serving requests against a backend that was never actually set up.
+if get_data_source() == "supabase":
+    try:
+        ensure_schema()
+    except Exception as error:
+        print(f"Supabase not ready at startup ({error}); falling back to local SQLite.", file=sys.stderr)
+        set_data_source("local")
+
+
+@app.errorhandler(Exception)
+def handle_unexpected_error(error):
+    """Last-resort net: any exception a route didn't already catch (a
+    bad config value, a library raising something unexpected, etc.)
+    lands here instead of the bare default 500 page, so a real user
+    always sees something plain and actionable while the real
+    traceback still goes to the logs for whoever's watching them."""
+    if isinstance(error, HTTPException):
+        return error
+    traceback.print_exc(file=sys.stderr)
+    return render_template("error.html"), 500
+
 
 # The knowledge-base RAG index is no longer built eagerly here at import
 # time -- src.rag.retrieve() builds it synchronously on its own first
@@ -168,8 +196,12 @@ def start_checkout():
             cancel_url=url_for("dashboard_page", _external=True),
         )
     except BillingError as error:
-        flash(str(error))
-        return redirect(url_for("dashboard_page"))
+        # Rendered directly, not flash()+redirect to /dashboard: this
+        # user is unpaid, so /dashboard's paid_required would just
+        # bounce them straight back to /checkout -- an infinite loop
+        # for anything that'll fail identically on retry (e.g. billing
+        # not configured), rather than a one-off failure worth retrying.
+        return render_template("error.html", message=str(error)), 502
     return redirect(checkout_url)
 
 
@@ -200,8 +232,10 @@ def checkout_success():
     try:
         payment_intent_id = confirm_checkout_session(session_id, session["user_id"]) if session_id else None
     except BillingError as error:
-        flash(str(error))
-        return redirect(url_for("dashboard_page"))
+        # Same reasoning as start_checkout: render directly rather than
+        # redirect to /dashboard, which would just bounce an unpaid
+        # user straight back into a failing /checkout.
+        return render_template("error.html", message=str(error)), 502
 
     if payment_intent_id:
         set_paid(session["user_id"], True, payment_intent_id)

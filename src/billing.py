@@ -25,7 +25,18 @@ class BillingError(Exception):
 def _client():
     import stripe
 
-    stripe.api_key = os.environ["STRIPE_SECRET_KEY"]
+    try:
+        stripe.api_key = os.environ["STRIPE_SECRET_KEY"]
+    except KeyError as error:
+        # A missing config value, not a failed API call -- callers still
+        # only need to catch BillingError, never a raw KeyError. Every
+        # public function below calls _client() before its own
+        # try/except stripe.error.StripeError, so without this a config
+        # problem here would crash as an unhandled 500 on the very first
+        # billing action a user takes (see app.py's error handler for
+        # the last-resort safety net either way).
+        print("Stripe error (missing config): STRIPE_SECRET_KEY is not set", file=sys.stderr)
+        raise BillingError("Billing isn't configured right now — please try again later.") from error
     return stripe
 
 
