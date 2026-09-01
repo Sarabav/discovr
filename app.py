@@ -21,7 +21,6 @@ from src.auth import (
     is_valid_email,
     login as authenticate,
     login_required,
-    paid_required,
     signup as signup_user,
 )
 from src.chatbot import (
@@ -169,9 +168,10 @@ def logout():
 
 
 @app.route("/dashboard")
-@paid_required
+@login_required
 def dashboard_page():
-    return render_template("dashboard.html", user_name=session["user_name"])
+    user = get_user_by_id(session["user_id"])
+    return render_template("dashboard.html", user_name=session["user_name"], paid=bool(user["paid"]))
 
 
 @app.route("/checkout")
@@ -196,11 +196,6 @@ def start_checkout():
             cancel_url=url_for("dashboard_page", _external=True),
         )
     except BillingError as error:
-        # Rendered directly, not flash()+redirect to /dashboard: this
-        # user is unpaid, so /dashboard's paid_required would just
-        # bounce them straight back to /checkout -- an infinite loop
-        # for anything that'll fail identically on retry (e.g. billing
-        # not configured), rather than a one-off failure worth retrying.
         return render_template("error.html", message=str(error)), 502
     return redirect(checkout_url)
 
@@ -232,9 +227,6 @@ def checkout_success():
     try:
         payment_intent_id = confirm_checkout_session(session_id, session["user_id"]) if session_id else None
     except BillingError as error:
-        # Same reasoning as start_checkout: render directly rather than
-        # redirect to /dashboard, which would just bounce an unpaid
-        # user straight back into a failing /checkout.
         return render_template("error.html", message=str(error)), 502
 
     if payment_intent_id:
@@ -305,8 +297,24 @@ def _run_agent_loop_safely(business_id, run_id):
         print(f"run_agent_loop({business_id}, {run_id}) failed: {error}", file=sys.stderr)
 
 
+def _taster_finding_id(analysis_id):
+    """The one finding a free user can generate a fix for without
+    paying -- the highest-priority (first-ranked, see rank_findings)
+    still-open finding, so they see the quality of what they'd be
+    paying for. None if there are no open findings."""
+    open_findings = [f for f in get_findings(analysis_id) if f["status"] == "open"]
+    return open_findings[0]["id"] if open_findings else None
+
+
+def _upgrade_response(message):
+    # 200, not 402/403: this is an expected, clean UI state for a free
+    # user, not an error -- the frontend renders it as an upgrade
+    # prompt (with a link to /checkout) rather than an error banner.
+    return jsonify({"type": "upgrade", "answer": message})
+
+
 @app.route("/chat", methods=["POST"])
-@paid_required
+@login_required
 def chat():
     data = request.get_json(silent=True) or {}
     question = data.get("question", "").strip()
@@ -333,6 +341,13 @@ def chat():
 
     if intent == "run_audit":
         if business and business["website_url"]:
+            # The diagnosis itself is free, but only once per business --
+            # an analysis already existing means this is a re-run, not
+            # the free first audit.
+            if analysis is not None and not get_user_by_id(user_id)["paid"]:
+                return _upgrade_response(
+                    "Your first audit is free — re-running one is a paid feature. Upgrade to run it again."
+                )
             return jsonify(_start_audit(business["id"]))
         business_id = business["id"] if business else create_business(user_id, session["user_name"], None)
         session["awaiting_website_for"] = business_id
@@ -348,6 +363,8 @@ def chat():
             return jsonify(
                 {"type": "answer", "answer": "Run an AI-visibility audit first, then I can work through the findings."}
             )
+        if not get_user_by_id(user_id)["paid"]:
+            return _upgrade_response("Fixing everything automatically is a paid feature. Upgrade to let the agent work through your findings.")
         return jsonify(_start_agent_loop(business["id"]))
 
     if intent == "generate_fix":
@@ -364,6 +381,9 @@ def chat():
                 return jsonify({"type": "answer", "answer": "No open findings right now — nothing to fix."})
             titles = ", ".join(f["title"] for f in open_findings)
             return jsonify({"type": "answer", "answer": f"Which finding do you mean? Open ones: {titles}."})
+
+        if not get_user_by_id(user_id)["paid"] and finding["id"] != _taster_finding_id(analysis["id"]):
+            return _upgrade_response("Upgrade to generate this fix.")
 
         try:
             result = generate_verified_fix(finding, business["id"])
@@ -382,6 +402,8 @@ def chat():
             return jsonify(
                 {"type": "answer", "answer": "Run an AI-visibility audit first, then I can show you your progress."}
             )
+        if not get_user_by_id(user_id)["paid"]:
+            return _upgrade_response("Tracking your score over time is a paid feature. Upgrade to see your progress.")
         return jsonify({"type": "answer", "answer": describe_progress(get_analyses_for_business(business["id"]))})
 
     # question
@@ -411,13 +433,23 @@ def run_status(run_id):
         analysis_id = last["analysis_id"]
         analysis = get_analysis(analysis_id)
         business = get_business(analysis["business_id"])
+        paid = bool(get_user_by_id(session["user_id"])["paid"])
+        taster_id = _taster_finding_id(analysis_id)
+        findings = [dict(finding) for finding in get_findings(analysis_id)]
+        for finding in findings:
+            # The real gate is server-side on the actual generate-fix
+            # routes (this is display only) -- a free user can generate
+            # exactly one fix (the taster, highest-priority open
+            # finding) for free; everything else needs an upgrade.
+            finding["locked"] = not paid and finding["status"] == "open" and finding["id"] != taster_id
         result = {
             "analysis_id": analysis_id,
             "business_name": business["name"],
             "overall_score": analysis["overall_score"],
             "categories": {name: analysis[f"{name}_score"] for name in CATEGORY_NAMES},
             "skipped": json.loads(analysis["skipped_json"] or "{}"),
-            "findings": [dict(finding) for finding in get_findings(analysis_id)],
+            "findings": findings,
+            "paid": paid,
         }
 
     return jsonify({"run_id": run_id, "status": status, "steps": steps, "error": error, "result": result})
@@ -548,6 +580,10 @@ def generate_fix_route(finding_id):
     finding = get_finding(finding_id)
     if finding is None:
         return jsonify({"error": "Finding not found."}), 404
+
+    user = get_user_by_id(session["user_id"])
+    if not user["paid"] and finding["id"] != _taster_finding_id(finding["analysis_id"]):
+        return _upgrade_response("Upgrade to generate this fix.")
 
     finding = dict(finding)
     finding["missing"] = json.loads(finding.get("missing_json") or "[]")

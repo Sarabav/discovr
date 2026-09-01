@@ -35,8 +35,11 @@ _(placeholder — add a screenshot of the chat here)_
   PBKDF2, never stored or logged in plain text), Flask-session-backed
   login state. Chat, settings, chunks, results, and components all
   require login (see [Authentication](#authentication)).
-- **Billing** — a one-time $5 Stripe Checkout paywall in front of the
-  chatbot, plus self-serve and admin refund (see [Billing](#billing)).
+- **Freemium billing** — every audit and every finding is free; a
+  one-time $5 Stripe Checkout payment gates generating fixes (except a
+  free taster on the top finding), the "fix everything" agent run, and
+  re-running an audit, plus self-serve and admin refund (see
+  [Billing](#billing)).
 - **Chat-first UI** — no separate dashboard: the whole app is one
   scrolling message thread with a composer pinned to the bottom.
   Asking to run an audit kicks off the real pipeline in the background
@@ -139,7 +142,7 @@ discovr/
 │   │   └── graph.py       # run_agent_loop(): LangGraph SUGGEST -> PLAN -> EXECUTE -> MONITOR loop
 │   ├── prompts/
 │   │   └── website_chatbot.txt  # System prompt for src.chatbot.answer_question
-│   ├── auth.py            # Email+password signup/login, login_required, admin_required, paid_required
+│   ├── auth.py            # Email+password signup/login, login_required, admin_required
 │   ├── billing.py         # Stripe: create_checkout_session, confirm_checkout_session, refund_payment
 │   ├── db.py              # SQLite schema and persistence (users, businesses, analyses, findings, fixes, agent_runs, ...)
 │   ├── store.py           # Persistence dispatcher: src.db or src.supabase_store, based on src.data_source
@@ -1124,21 +1127,41 @@ scale.
 
 ## Billing
 
-A one-time $5 paywall sits in front of the chatbot, via Stripe
-Checkout. `src/billing.py` is the only module that talks to Stripe
-(`stripe.api_key` is set lazily, inside `_client()`, from
-`STRIPE_SECRET_KEY`); `app.py` and `src/auth.py` never call the Stripe
-SDK directly.
+Freemium, not a hard paywall: signing up always reaches the dashboard,
+and every user can run their first audit and see the full score card
+and every finding for free. Payment (a one-time $5 via Stripe Checkout)
+only gates generating fixes, the "fix everything" agent run, and
+re-running an audit / seeing score history. `src/billing.py` is the
+only module that talks to Stripe (`stripe.api_key` is set lazily,
+inside `_client()`, from `STRIPE_SECRET_KEY`); `app.py` and
+`src/auth.py` never call the Stripe SDK directly.
 
-- **The gate**: `src.auth.paid_required` (`app.py`'s `/dashboard` and
-  `/chat` routes) looks up `users.paid` fresh from the database on
-  every request — never cached in the session, unlike `is_admin` —
-  since a refund must re-apply the paywall on this user's very next
-  request, not next login. An unpaid logged-in user is redirected to
-  `/checkout`; both routes are gated, not just the page, since the
-  source is public and a page-only gate would just be a UI suggestion
-  an API client could skip straight past (see [Admin
-  Area](#admin-area)'s "hidden-but-reachable isn't access control").
+- **What's free vs. paid** — enforced server-side in `app.py`, checked
+  fresh from `users.paid` on every request (never cached in the
+  session, since a refund must re-apply the gate on this user's very
+  next request):
+  - Free: sign up, run one audit per business (`/chat`'s `run_audit`
+    intent, only when no analysis exists yet for that business), the
+    full score card, all findings with their `why_it_matters`.
+  - Paid: generating a fix for any finding except the "taster" (see
+    below) — `POST /findings/<finding_id>/fix` and `/chat`'s
+    `generate_fix` intent; the "fix everything" agent run — `/chat`'s
+    `fix_all` intent; re-running an audit once one already exists for
+    the business; score history (`/chat`'s `check_progress` intent).
+  - A gated route or intent never 403s or error-pages a free user —
+    it returns a normal 200 with `{"type": "upgrade", "answer":
+    "<plain message>"}`, which the frontend renders as an upgrade
+    prompt (with a link to `/checkout`) rather than an error banner.
+    `app._upgrade_response()` builds this consistently everywhere.
+- **The free taster**: on a fresh audit, one finding — the
+  highest-priority still-open one (`app._taster_finding_id`, first in
+  the already-impact-ranked list `rank_findings` produces) — is free to
+  generate a fix for, so a free user sees the real quality of a
+  generated fix before paying for the rest. `GET /runs/<run_id>`
+  computes a `locked` flag per finding server-side (display only — the
+  actual gate is re-checked independently on the generate-fix routes
+  themselves) so the frontend can show a lock icon and "Upgrade to
+  generate this fix" instead of the normal button for everything else.
 - **Checkout**: `GET /checkout` first checks the account's own stored
   email is actually valid (`src.auth.is_valid_email`) — an account can
   predate the signup format check, or be provisioned directly — and if
@@ -1154,7 +1177,8 @@ SDK directly.
   == "paid"` (`src.billing.confirm_checkout_session`) — never trusts
   the query string alone — before calling `src.store.set_paid(user_id,
   True, payment_intent_id)`. `cancel_url` points back at `/dashboard`,
-  which (still unpaid) immediately starts a new Checkout Session again.
+  which is always reachable — cancelling Checkout just leaves the
+  account on the free plan, same as before they clicked Upgrade.
 - **Stripe failures never reach the browser as a 500**: every Stripe
   SDK call in `src/billing.py` is wrapped in `try`/`except
   stripe.error.StripeError`, which logs the real error to stderr and
@@ -1173,13 +1197,14 @@ SDK directly.
   for anything that fails identically on retry, like a missing key).
 - **Self-serve refund**: the dashboard's **Settings** button (top of
   the chat page, `static/billing.js`) opens a small panel showing
-  payment status and a **Refund my payment** button, `POST
-  /billing/refund`. It refunds the caller's own
+  payment status. A paid user sees a **Refund my payment** button,
+  `POST /billing/refund` — refunds the caller's own
   `stripe_payment_intent_id` (`src.billing.refund_payment` —
   `stripe.Refund.create`), calls `set_paid(user_id, False)` (the intent
-  id is kept, not cleared, as a record of what was refunded), and shows
-  a confirmation message before reloading `/dashboard` — which, now
-  unpaid, sends the user straight back through Checkout.
+  id is kept, not cleared, as a record of what was refunded), shows a
+  confirmation message, then reloads `/dashboard` to pick up the
+  free-plan view (locked fix cards, upgrade bar). A free user sees the
+  same panel with an **Upgrade — $5** link to `/checkout` instead.
 - **Admin refund**: `/admin`'s Users table lists every account with its
   paid status and a **Refund** button next to each paid one, `POST
   /admin/users/<user_id>/refund` (`admin_required`) — same refund logic,

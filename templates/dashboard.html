@@ -15,8 +15,13 @@
     <div class="chat-column chat-toolbar-inner">
       <button type="button" id="billing-settings-toggle" class="button-ghost">Settings</button>
       <div id="billing-settings-panel" class="billing-settings-panel hidden">
+        {% if paid %}
         <p class="billing-status">Status: <strong>Paid</strong> — one-time $5 access</p>
         <button type="button" id="refund-button" class="button-ghost">Refund my payment</button>
+        {% else %}
+        <p class="billing-status">Status: <strong>Free plan</strong> — audits and findings are free, generated fixes are paid</p>
+        <a href="{{ url_for('start_checkout') }}" class="button-ghost">Upgrade — $5</a>
+        {% endif %}
         <p id="refund-message" class="billing-message hidden"></p>
       </div>
     </div>

@@ -10,7 +10,7 @@ from functools import wraps
 from flask import abort, redirect, session, url_for
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from src.store import create_user, get_user_by_email, get_user_by_id
+from src.store import create_user, get_user_by_email
 
 MIN_PASSWORD_LENGTH = 8
 
@@ -70,26 +70,6 @@ def login_required(view):
     def wrapped_view(*args, **kwargs):
         if session.get("user_id") is None:
             return redirect(url_for("login_page"))
-        return view(*args, **kwargs)
-
-    return wrapped_view
-
-
-def paid_required(view):
-    """Like login_required, but also demands payment -- an unpaid
-    logged-in user is redirected straight to a fresh Stripe Checkout
-    session (start_checkout) instead of into the chatbot. Paid status
-    is looked up fresh from the database on every call, never cached
-    in the session, since a refund (self-service or admin-issued) must
-    re-apply the paywall on this user's very next request."""
-
-    @wraps(view)
-    def wrapped_view(*args, **kwargs):
-        if session.get("user_id") is None:
-            return redirect(url_for("login_page"))
-        user = get_user_by_id(session["user_id"])
-        if user is None or not user["paid"]:
-            return redirect(url_for("start_checkout"))
         return view(*args, **kwargs)
 
     return wrapped_view

@@ -108,6 +108,11 @@ async function sendMessage(text) {
       return;
     }
 
+    if (data.type === "upgrade") {
+      addUpgradeMessage(data.answer);
+      return;
+    }
+
     addAssistantMessage(data.answer);
   } catch (error) {
     pending.remove();
@@ -396,6 +401,24 @@ function addAssistantMessage(text) {
   scrollToBottom();
 }
 
+function addUpgradeMessage(text) {
+  const div = document.createElement("div");
+  div.className = "message assistant";
+
+  const p = document.createElement("p");
+  p.textContent = text;
+  div.appendChild(p);
+
+  const link = document.createElement("a");
+  link.href = "/checkout";
+  link.className = "button-ghost upgrade-link";
+  link.textContent = "Upgrade — $5";
+  div.appendChild(link);
+
+  chatMessages.appendChild(div);
+  scrollToBottom();
+}
+
 function addFixMessage(finding, fix) {
   const wrapper = document.createElement("div");
   wrapper.className = "message assistant";
@@ -535,6 +558,20 @@ function addReportMessage(report) {
   findingsBox.className = "report-recommendations";
   findingsBox.innerHTML = "<h4>Findings, Ranked by Impact</h4>";
 
+  if (!report.paid) {
+    const upgradeBar = document.createElement("div");
+    upgradeBar.className = "upgrade-bar";
+    const upgradeText = document.createElement("span");
+    upgradeText.textContent = "You're on the free plan — audits and findings are free, generated fixes are paid.";
+    upgradeBar.appendChild(upgradeText);
+    const upgradeLink = document.createElement("a");
+    upgradeLink.href = "/checkout";
+    upgradeLink.className = "upgrade-bar-link";
+    upgradeLink.textContent = "Upgrade";
+    upgradeBar.appendChild(upgradeLink);
+    findingsBox.appendChild(upgradeBar);
+  }
+
   if (report.findings.length) {
     const fixAllWrapper = document.createElement("div");
     fixAllWrapper.className = "fix-all-wrapper";
@@ -586,13 +623,28 @@ function buildFindingCard(finding) {
     </p>
   `;
 
+  if (finding.why_it_matters) {
+    const why = document.createElement("p");
+    why.className = "finding-why-matters";
+    why.textContent = `Why it matters: ${finding.why_it_matters}`;
+    card.appendChild(why);
+  }
+
   if (FIXABLE_CATEGORIES.has(finding.category) && finding.id) {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "button-ghost generate-fix-button";
-    button.textContent = "Generate this fix";
-    button.addEventListener("click", () => generateFix(finding.id, button, card));
-    card.appendChild(button);
+    if (finding.locked) {
+      const lockedNote = document.createElement("a");
+      lockedNote.href = "/checkout";
+      lockedNote.className = "finding-locked-note";
+      lockedNote.innerHTML = `<span class="lock-icon" aria-hidden="true">&#128274;</span> Upgrade to generate this fix`;
+      card.appendChild(lockedNote);
+    } else {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "button-ghost generate-fix-button";
+      button.textContent = "Generate this fix";
+      button.addEventListener("click", () => generateFix(finding.id, button, card));
+      card.appendChild(button);
+    }
   }
 
   return card;
@@ -612,6 +664,20 @@ async function generateFix(findingId, button, card) {
       error.className = "fix-error";
       error.textContent = data.error || "Could not generate a fix.";
       card.appendChild(error);
+      return;
+    }
+
+    // The server is the real gate (see /findings/<id>/fix) -- the
+    // locked/unlocked buttons are just a head start, so this still has
+    // to handle being told "actually, upgrade" even though the button
+    // shouldn't normally be clickable in that state.
+    if (data.type === "upgrade") {
+      button.remove();
+      const lockedNote = document.createElement("a");
+      lockedNote.href = "/checkout";
+      lockedNote.className = "finding-locked-note";
+      lockedNote.innerHTML = `<span class="lock-icon" aria-hidden="true">&#128274;</span> ${data.answer}`;
+      card.appendChild(lockedNote);
       return;
     }
 

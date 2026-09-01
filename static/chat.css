@@ -227,6 +227,55 @@ html,
   padding: 6px 12px;
 }
 
+.finding-why-matters {
+  margin: 6px 0 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.finding-locked-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  font-size: 0.8rem;
+  color: var(--accent-2);
+}
+
+.finding-locked-note:hover {
+  color: var(--accent);
+}
+
+.lock-icon {
+  font-size: 0.85rem;
+}
+
+.upgrade-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 8px 0 14px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--card);
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.upgrade-bar-link {
+  flex-shrink: 0;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.upgrade-link {
+  display: inline-block;
+  margin-top: 10px;
+  font-size: 0.85rem;
+}
+
 .fix-error {
   margin: 8px 0 0;
   color: var(--bad);
